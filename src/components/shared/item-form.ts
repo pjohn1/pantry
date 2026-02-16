@@ -1,6 +1,22 @@
 import { el } from '../../utils/dom';
 import { CATEGORIES, CATEGORY_LABELS, UNITS, type ItemCategory } from '../../models/types';
 
+const LAST_CATEGORY_KEY = 'pantry-last-category';
+const LAST_UNIT_KEY = 'pantry-last-unit';
+
+function getLastCategory(): ItemCategory {
+  return (localStorage.getItem(LAST_CATEGORY_KEY) as ItemCategory) || 'other';
+}
+
+function getLastUnit(): string {
+  return localStorage.getItem(LAST_UNIT_KEY) || 'count';
+}
+
+function saveLastChoices(category: ItemCategory, unit: string): void {
+  localStorage.setItem(LAST_CATEGORY_KEY, category);
+  localStorage.setItem(LAST_UNIT_KEY, unit);
+}
+
 export interface ItemFormData {
   name: string;
   quantity: number;
@@ -16,6 +32,9 @@ export interface ItemFormOptions {
 
 export function createItemForm(container: HTMLElement, options: ItemFormOptions): void {
   const { initial, submitLabel, onSubmit } = options;
+
+  const defaultCategory = initial?.category ?? getLastCategory();
+  const defaultUnit = initial?.unit ?? getLastUnit();
 
   // Name
   const nameGroup = el('div', { className: 'input-group' });
@@ -42,7 +61,7 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
   const unitSelect = el('select', { className: 'select' });
   for (const u of UNITS) {
     const opt = el('option', { value: u }, u);
-    if (u === (initial?.unit ?? 'count')) opt.selected = true;
+    if (u === defaultUnit) opt.selected = true;
     unitSelect.appendChild(opt);
   }
   unitGroup.appendChild(unitSelect);
@@ -55,7 +74,7 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
   const catSelect = el('select', { className: 'select' });
   for (const cat of CATEGORIES) {
     const opt = el('option', { value: cat }, CATEGORY_LABELS[cat]);
-    if (cat === (initial?.category ?? 'other')) opt.selected = true;
+    if (cat === defaultCategory) opt.selected = true;
     catSelect.appendChild(opt);
   }
   catGroup.appendChild(catSelect);
@@ -69,11 +88,14 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
       nameInput.focus();
       return;
     }
+    const category = catSelect.value as ItemCategory;
+    const unit = unitSelect.value;
+    saveLastChoices(category, unit);
     onSubmit({
       name,
       quantity: parseFloat(qtyInput.value) || 1,
-      unit: unitSelect.value,
-      category: catSelect.value as ItemCategory,
+      unit,
+      category,
     });
   });
   container.appendChild(submitBtn);

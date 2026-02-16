@@ -39,7 +39,7 @@ export function createPantryView(): HTMLElement {
   container.appendChild(pills);
 
   // Item list
-  const listContainer = el('div');
+  const listContainer = el('div', { className: 'list-container has-fab' });
   container.appendChild(listContainer);
 
   // FAB
@@ -52,7 +52,7 @@ export function createPantryView(): HTMLElement {
           await addPantryItem(data);
           close();
           showToast('Item added', 'success');
-          renderList();
+          await loadData();
         },
       });
     });
@@ -86,6 +86,10 @@ export function createPantryView(): HTMLElement {
   }
 
   function renderList() {
+    // Save scroll position of the parent scroll container
+    const scrollParent = container.closest('.app-content');
+    const scrollTop = scrollParent?.scrollTop ?? 0;
+
     const items = getFilteredItems();
     listContainer.innerHTML = '';
 
@@ -110,7 +114,7 @@ export function createPantryView(): HTMLElement {
     }
 
     for (const [cat, catItems] of grouped) {
-      const section = el('div');
+      const section = el('div', { className: 'section-group' });
       const header = el('div', { className: 'section-header' });
       header.appendChild(el('span', { className: 'section-title' }, CATEGORY_LABELS[cat]));
       header.appendChild(el('span', { className: 'section-title' }, String(catItems.length)));
@@ -122,6 +126,13 @@ export function createPantryView(): HTMLElement {
       }
       section.appendChild(list);
       listContainer.appendChild(section);
+    }
+
+    // Restore scroll position
+    if (scrollParent) {
+      requestAnimationFrame(() => {
+        scrollParent.scrollTop = scrollTop;
+      });
     }
   }
 

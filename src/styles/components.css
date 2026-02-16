@@ -366,7 +366,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-sm);
+}
+
+.section-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.section-group:last-child {
+  margin-bottom: 0;
 }
 
 .section-title {
@@ -459,4 +467,22 @@
 
 .url-input-row .input {
   flex: 1;
+}
+
+/* Prevent iOS rubber-band scroll on body */
+html, body {
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* Stable list container to reduce reflow */
+.list-container {
+  min-height: 100px;
+}
+
+/* Extra bottom padding so FAB doesn't cover last item */
+.has-fab {
+  padding-bottom: 72px;
 }

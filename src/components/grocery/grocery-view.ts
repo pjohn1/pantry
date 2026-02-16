@@ -44,7 +44,7 @@ export function createGroceryView(): HTMLElement {
   container.appendChild(actionBar);
 
   // List container
-  const listContainer = el('div');
+  const listContainer = el('div', { className: 'list-container has-fab' });
   container.appendChild(listContainer);
 
   // FAB for manual add
@@ -75,6 +75,9 @@ export function createGroceryView(): HTMLElement {
   }
 
   function renderList() {
+    const scrollParent = container.closest('.app-content');
+    const scrollTop = scrollParent?.scrollTop ?? 0;
+
     listContainer.innerHTML = '';
 
     if (allItems.length === 0) {
@@ -102,7 +105,7 @@ export function createGroceryView(): HTMLElement {
     }
 
     for (const [cat, catItems] of grouped) {
-      const section = el('div');
+      const section = el('div', { className: 'section-group' });
       const header = el('div', { className: 'section-header' });
       header.appendChild(el('span', { className: 'section-title' }, CATEGORY_LABELS[cat]));
       section.appendChild(header);
@@ -113,6 +116,13 @@ export function createGroceryView(): HTMLElement {
       }
       section.appendChild(list);
       listContainer.appendChild(section);
+    }
+
+    // Restore scroll position
+    if (scrollParent) {
+      requestAnimationFrame(() => {
+        scrollParent.scrollTop = scrollTop;
+      });
     }
   }
 
