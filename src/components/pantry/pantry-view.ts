@@ -1,9 +1,15 @@
 import { el, on, svgIcon } from '../../utils/dom';
-import { getAllPantryItems, addPantryItem, updatePantryItem, deletePantryItem } from '../../services/pantry.service';
+import { getAllPantryItems, addPantryItem, updatePantryItem, deletePantryItem, toggleOut } from '../../services/pantry.service';
 import { CATEGORIES, CATEGORY_LABELS, type ItemCategory, type PantryItem } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
+
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: 'short', day: 'numeric', year: 'numeric',
+  });
+}
 
 export function createPantryView(): HTMLElement {
   const container = el('div', { className: 'pantry-view' });
@@ -82,11 +88,14 @@ export function createPantryView(): HTMLElement {
     if (query) {
       items = items.filter(i => i.name.toLowerCase().includes(query));
     }
-    return items.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort: out items at bottom, then alphabetical
+    return items.sort((a, b) => {
+      if (a.isOut !== b.isOut) return a.isOut ? 1 : -1;
+      return a.name.localeCompare(b.name);
+    });
   }
 
   function renderList() {
-    // Save scroll position of the parent scroll container
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
@@ -128,7 +137,6 @@ export function createPantryView(): HTMLElement {
       listContainer.appendChild(section);
     }
 
-    // Restore scroll position
     if (scrollParent) {
       requestAnimationFrame(() => {
         scrollParent.scrollTop = scrollTop;
@@ -137,43 +145,94 @@ export function createPantryView(): HTMLElement {
   }
 
   function createItemRow(item: PantryItem): HTMLElement {
-    const row = el('div', { className: 'item-row' });
+    const row = el('div', { className: `item-row${item.isOut ? ' item-out' : ''}` });
 
     const content = el('div', { className: 'item-row-content' });
     content.appendChild(el('div', { className: 'item-row-name' }, item.name));
     content.appendChild(el('div', { className: 'item-row-detail' },
-      `${item.quantity} ${item.unit}`
+      `${item.quantity} ${item.unit}${item.isOut ? ' \u2022 Out' : ''}`
     ));
     row.appendChild(content);
 
     const actions = el('div', { className: 'item-row-actions' });
 
-    const editBtn = el('button', { className: 'btn btn-sm btn-secondary' }, 'Edit');
-    on(editBtn, 'click', () => {
-      openModal('Edit Item', (body, close) => {
-        createItemForm(body, {
-          initial: { name: item.name, quantity: item.quantity, unit: item.unit, category: item.category },
-          submitLabel: 'Save',
-          onSubmit: async (data: ItemFormData) => {
-            await updatePantryItem({ ...item, ...data });
-            close();
-            showToast('Item updated', 'success');
-            await loadData();
-          },
-        });
-      });
-    });
-    actions.appendChild(editBtn);
-
-    const deleteBtn = el('button', { className: 'btn btn-sm btn-danger' }, 'Del');
-    on(deleteBtn, 'click', async () => {
-      await deletePantryItem(item.id);
-      showToast('Item removed', 'info');
+    // Out toggle
+    const outBtn = el('button', {
+      className: `btn btn-sm ${item.isOut ? 'btn-success' : 'btn-warning'}`,
+    }, item.isOut ? 'In' : 'Out');
+    on(outBtn, 'click', async () => {
+      const isNowOut = await toggleOut(item.id);
+      showToast(isNowOut ? 'Marked out \u2014 added to grocery list' : 'Marked back in', 'success');
       await loadData();
     });
-    actions.appendChild(deleteBtn);
+    actions.appendChild(outBtn);
+
+    // Info button
+    const infoBtn = el('button', { className: 'btn btn-sm btn-secondary' }, 'i');
+    infoBtn.style.fontStyle = 'italic';
+    infoBtn.style.fontWeight = '700';
+    infoBtn.style.minWidth = '32px';
+    on(infoBtn, 'click', () => {
+      openModal(item.name, (body) => {
+        const info = el('div', { className: 'info-sheet' });
+
+        info.appendChild(infoRow('Category', CATEGORY_LABELS[item.category]));
+        info.appendChild(infoRow('Quantity', `${item.quantity} ${item.unit}`));
+        info.appendChild(infoRow('Added', formatDate(item.dateAdded)));
+        if (item.purchaseDate) {
+          info.appendChild(infoRow('Last purchased', formatDate(item.purchaseDate)));
+        }
+        info.appendChild(infoRow('Status', item.isOut ? 'Out of stock' : 'In stock'));
+
+        body.appendChild(info);
+
+        // Edit / Delete buttons
+        const btnRow = el('div', { className: 'input-row' });
+        btnRow.style.marginTop = '16px';
+
+        const editBtn2 = el('button', { className: 'btn btn-secondary' }, 'Edit');
+        editBtn2.style.flex = '1';
+        on(editBtn2, 'click', () => {
+          // Close info modal, open edit modal
+          body.closest('.modal-overlay')?.remove();
+          openModal('Edit Item', (editBody, close) => {
+            createItemForm(editBody, {
+              initial: { name: item.name, quantity: item.quantity, unit: item.unit, category: item.category },
+              submitLabel: 'Save',
+              onSubmit: async (data: ItemFormData) => {
+                await updatePantryItem({ ...item, ...data });
+                close();
+                showToast('Item updated', 'success');
+                await loadData();
+              },
+            });
+          });
+        });
+        btnRow.appendChild(editBtn2);
+
+        const delBtn2 = el('button', { className: 'btn btn-danger' }, 'Delete');
+        delBtn2.style.flex = '1';
+        on(delBtn2, 'click', async () => {
+          await deletePantryItem(item.id);
+          body.closest('.modal-overlay')?.remove();
+          showToast('Item removed', 'info');
+          await loadData();
+        });
+        btnRow.appendChild(delBtn2);
+
+        body.appendChild(btnRow);
+      });
+    });
+    actions.appendChild(infoBtn);
 
     row.appendChild(actions);
+    return row;
+  }
+
+  function infoRow(label: string, value: string): HTMLElement {
+    const row = el('div', { className: 'info-row' });
+    row.appendChild(el('span', { className: 'info-label' }, label));
+    row.appendChild(el('span', { className: 'info-value' }, value));
     return row;
   }
 

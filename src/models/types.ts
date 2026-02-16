@@ -47,6 +47,8 @@ export interface PantryItem {
   unit: string;
   category: ItemCategory;
   dateAdded: number;
+  isOut?: boolean;
+  purchaseDate?: number;
 }
 
 export interface TypicalOrderItem {
@@ -58,7 +60,7 @@ export interface TypicalOrderItem {
   category: ItemCategory;
 }
 
-export type GrocerySource = 'auto' | 'manual' | 'recipe';
+export type GrocerySource = 'auto' | 'manual' | 'recipe' | 'out';
 
 export interface GroceryListItem {
   id: string;
@@ -69,6 +71,7 @@ export interface GroceryListItem {
   category: ItemCategory;
   source: GrocerySource;
   sourceRecipeId?: string;
+  sourcePantryId?: string;
   checked: boolean;
 }
 

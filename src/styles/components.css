@@ -32,6 +32,16 @@
   color: #fff;
 }
 
+.btn-success {
+  background: var(--color-success);
+  color: #fff;
+}
+
+.btn-warning {
+  background: var(--color-warning);
+  color: #fff;
+}
+
 .btn-sm {
   padding: 6px 12px;
   font-size: 13px;
@@ -485,4 +495,45 @@ html, body {
 /* Extra bottom padding so FAB doesn't cover last item */
 .has-fab {
   padding-bottom: 72px;
+}
+
+/* Out of stock item highlight */
+.item-row.item-out {
+  background: rgba(230, 57, 70, 0.08);
+  border-left: 3px solid var(--color-danger);
+}
+
+.item-row.item-out .item-row-name {
+  color: var(--color-danger);
+}
+
+/* Info sheet */
+.info-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
 }

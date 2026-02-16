@@ -1,6 +1,7 @@
 import { getDB } from '../db/database';
 import type { GroceryListItem, PantryItem, ItemCategory } from '../models/types';
 import { normalizeIngredientName } from '../utils/normalize';
+import { addPantryItemFromPurchase } from './pantry.service';
 
 export async function getAllGroceryItems(): Promise<GroceryListItem[]> {
   const db = await getDB();
@@ -43,16 +44,16 @@ export async function regenerateGroceryList(): Promise<GroceryListItem[]> {
     // If in pantry, skip (v1: presence-based matching)
   }
 
-  // Preserve manual and recipe items, keep their checked state
+  // Preserve manual, recipe, and out items, keep their checked state
   const currentList = await db.getAll('groceryList');
-  const manualAndRecipe = currentList.filter(
-    item => item.source === 'manual' || item.source === 'recipe'
+  const preserved = currentList.filter(
+    item => item.source === 'manual' || item.source === 'recipe' || item.source === 'out'
   );
 
   // Clear and rewrite
   const tx = db.transaction('groceryList', 'readwrite');
   await tx.objectStore('groceryList').clear();
-  const merged = [...autoItems, ...manualAndRecipe];
+  const merged = [...autoItems, ...preserved];
   for (const item of merged) {
     await tx.objectStore('groceryList').put(item);
   }
@@ -103,4 +104,18 @@ export async function clearCheckedItems(): Promise<void> {
     }
   }
   await tx.done;
+}
+
+export async function purchaseGroceryItem(id: string): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('groceryList', id);
+  if (!item) return;
+
+  // Add to pantry (or update existing pantry item)
+  await addPantryItemFromPurchase(
+    item.name, item.normalizedName, item.quantity, item.unit, item.category
+  );
+
+  // Remove from grocery list
+  await db.delete('groceryList', id);
 }

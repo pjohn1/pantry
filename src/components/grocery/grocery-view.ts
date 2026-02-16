@@ -6,11 +6,22 @@ import {
   toggleGroceryItem,
   deleteGroceryItem,
   clearCheckedItems,
+  purchaseGroceryItem,
 } from '../../services/grocery.service';
 import { CATEGORY_LABELS, type GroceryListItem, type ItemCategory } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case 'auto': return 'auto';
+    case 'recipe': return 'recipe';
+    case 'out': return 'out of stock';
+    case 'manual': return 'manual';
+    default: return source;
+  }
+}
 
 export function createGroceryView(): HTMLElement {
   const container = el('div', { className: 'grocery-view' });
@@ -118,7 +129,6 @@ export function createGroceryView(): HTMLElement {
       listContainer.appendChild(section);
     }
 
-    // Restore scroll position
     if (scrollParent) {
       requestAnimationFrame(() => {
         scrollParent.scrollTop = scrollTop;
@@ -143,22 +153,34 @@ export function createGroceryView(): HTMLElement {
     content.appendChild(nameEl);
 
     const detail = el('div', { className: 'item-row-detail' });
-    let detailText = `${item.quantity} ${item.unit}`;
-    if (item.source === 'recipe') detailText += ' (recipe)';
-    else if (item.source === 'auto') detailText += ' (auto)';
-    detail.textContent = detailText;
+    detail.textContent = `${item.quantity} ${item.unit} \u2022 ${sourceLabel(item.source)}`;
     content.appendChild(detail);
 
     row.appendChild(content);
 
+    // Action buttons
+    const actions = el('div', { className: 'item-row-actions' });
+
+    // Purchased button
+    const purchaseBtn = el('button', { className: 'btn btn-sm btn-success' }, 'Got it');
+    on(purchaseBtn, 'click', async () => {
+      await purchaseGroceryItem(item.id);
+      showToast(`${item.name} added to pantry`, 'success');
+      await loadData();
+    });
+    actions.appendChild(purchaseBtn);
+
     // Delete button
     const deleteBtn = el('button', { className: 'btn btn-sm btn-secondary' }, '\u00D7');
+    deleteBtn.style.minWidth = '32px';
     on(deleteBtn, 'click', async () => {
       await deleteGroceryItem(item.id);
       showToast('Item removed', 'info');
       await loadData();
     });
-    row.appendChild(deleteBtn);
+    actions.appendChild(deleteBtn);
+
+    row.appendChild(actions);
 
     return row;
   }
