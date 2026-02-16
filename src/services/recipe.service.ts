@@ -70,3 +70,17 @@ export async function refreshRecipeMatches(recipe: Recipe): Promise<RecipeIngred
   await db.put('recipes', recipe);
   return updated;
 }
+
+export async function saveScannedRecipe(title: string, ingredients: RecipeIngredient[]): Promise<Recipe> {
+  const recipe: Recipe = {
+    id: crypto.randomUUID(),
+    url: '',
+    title,
+    ingredients,
+    dateAdded: Date.now(),
+  };
+
+  const db = await getDB();
+  await db.put('recipes', recipe);
+  return recipe;
+}
