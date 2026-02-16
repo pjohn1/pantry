@@ -1,0 +1,29 @@
+{
+  "name": "Pantry Tracker",
+  "short_name": "Pantry",
+  "description": "Track your pantry, build grocery lists, parse recipes",
+  "start_url": "/pantry/",
+  "scope": "/pantry/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#2d6a4f",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
