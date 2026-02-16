@@ -31,9 +31,8 @@ export async function addMissingToGroceryList(
   recipeId: string
 ): Promise<void> {
   const db = await getDB();
-  const tx = db.transaction('groceryList', 'readwrite');
 
-  // Check existing recipe items to avoid duplicates
+  // Read existing items first (separate transaction)
   const existing = await db.getAll('groceryList');
   const existingNames = new Set(
     existing
@@ -41,21 +40,26 @@ export async function addMissingToGroceryList(
       .map((i: GroceryListItem) => i.normalizedName)
   );
 
-  for (const ing of ingredients) {
-    if (!ing.inPantry && !existingNames.has(ing.normalizedName)) {
-      await tx.objectStore('groceryList').put({
-        id: crypto.randomUUID(),
-        name: ing.name,
-        normalizedName: ing.normalizedName,
-        quantity: ing.quantity ?? 1,
-        unit: ing.unit,
-        category: 'other' as const,
-        source: 'recipe' as const,
-        sourceRecipeId: recipeId,
-        checked: false,
-      });
-    }
-  }
+  // Then write in a separate transaction
+  const missing = ingredients.filter(
+    ing => !ing.inPantry && !existingNames.has(ing.normalizedName)
+  );
 
+  if (missing.length === 0) return;
+
+  const tx = db.transaction('groceryList', 'readwrite');
+  for (const ing of missing) {
+    await tx.objectStore('groceryList').put({
+      id: crypto.randomUUID(),
+      name: ing.name,
+      normalizedName: ing.normalizedName,
+      quantity: ing.quantity ?? 1,
+      unit: ing.unit,
+      category: 'other' as const,
+      source: 'recipe' as const,
+      sourceRecipeId: recipeId,
+      checked: false,
+    });
+  }
   await tx.done;
 }
