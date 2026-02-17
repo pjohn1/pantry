@@ -1,6 +1,7 @@
 import { getDB } from '../db/database';
 import type { PantryItem, ItemCategory, GroceryListItem } from '../models/types';
 import { normalizeIngredientName } from '../utils/normalize';
+import { emit } from '../utils/events';
 
 export async function getAllPantryItems(): Promise<PantryItem[]> {
   const db = await getDB();
@@ -79,6 +80,10 @@ export async function toggleOut(id: string): Promise<boolean> {
     }
     await tx.done;
   }
+
+  // Update grocery badge count
+  const allGrocery = await db.getAll('groceryList');
+  emit('grocery-count', allGrocery.filter(g => !g.checked).length);
 
   return item.isOut;
 }

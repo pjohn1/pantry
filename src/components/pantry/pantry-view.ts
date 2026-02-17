@@ -14,6 +14,10 @@ function formatDate(ts: number): string {
 export function createPantryView(): HTMLElement {
   const container = el('div', { className: 'pantry-view' });
 
+  // Summary bar
+  const summary = el('div', { className: 'summary-bar' });
+  container.appendChild(summary);
+
   // Search bar
   const searchBar = el('div', { className: 'search-bar' });
   searchBar.appendChild(svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'));
@@ -66,6 +70,18 @@ export function createPantryView(): HTMLElement {
   container.appendChild(fab);
 
   let allItems: PantryItem[] = [];
+
+  function updateSummary() {
+    const total = allItems.length;
+    const outCount = allItems.filter(i => i.isOut).length;
+    if (total === 0) {
+      summary.textContent = 'No items in your pantry';
+    } else if (outCount > 0) {
+      summary.textContent = `${total} item${total !== 1 ? 's' : ''} \u00B7 ${outCount} out of stock`;
+    } else {
+      summary.textContent = `${total} item${total !== 1 ? 's' : ''} in stock`;
+    }
+  }
 
   function renderPills() {
     const buttons = pills.querySelectorAll('.filter-pill');
@@ -148,9 +164,40 @@ export function createPantryView(): HTMLElement {
 
     const content = el('div', { className: 'item-row-content' });
     content.appendChild(el('div', { className: 'item-row-name' }, item.name));
-    content.appendChild(el('div', { className: 'item-row-detail' },
-      `${item.quantity} ${item.unit}${item.isOut ? ' \u2022 Out' : ''}`
-    ));
+
+    if (item.isOut) {
+      content.appendChild(el('div', { className: 'item-row-detail' },
+        `${item.quantity} ${item.unit} \u2022 Out`
+      ));
+    } else {
+      // Inline quantity stepper
+      const stepper = el('div', { className: 'qty-stepper' });
+
+      const minusBtn = el('button', { className: 'qty-stepper-btn' }, '\u2212');
+      on(minusBtn, 'click', async (e) => {
+        e.stopPropagation();
+        if (item.quantity <= 1) return;
+        item.quantity = Math.max(0, item.quantity - 1);
+        await updatePantryItem(item);
+        await loadData();
+      });
+      stepper.appendChild(minusBtn);
+
+      const valEl = el('span', { className: 'qty-stepper-val' }, `${item.quantity} ${item.unit}`);
+      stepper.appendChild(valEl);
+
+      const plusBtn = el('button', { className: 'qty-stepper-btn' }, '+');
+      on(plusBtn, 'click', async (e) => {
+        e.stopPropagation();
+        item.quantity += 1;
+        await updatePantryItem(item);
+        await loadData();
+      });
+      stepper.appendChild(plusBtn);
+
+      content.appendChild(stepper);
+    }
+
     row.appendChild(content);
 
     const actions = el('div', { className: 'item-row-actions' });
@@ -237,6 +284,7 @@ export function createPantryView(): HTMLElement {
 
   async function loadData() {
     allItems = await getAllPantryItems();
+    updateSummary();
     renderList();
   }
 

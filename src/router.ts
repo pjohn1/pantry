@@ -21,6 +21,7 @@ export function initRouter(contentEl: HTMLElement): void {
     if (handler) {
       const view = await handler();
       contentEl.innerHTML = '';
+      view.classList.add('view-enter');
       contentEl.appendChild(view);
     }
   }

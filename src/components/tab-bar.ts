@@ -1,5 +1,6 @@
 import { el, svgIcon } from '../utils/dom';
 import { getCurrentRoute, navigateTo } from '../router';
+import { subscribe } from '../utils/events';
 
 interface Tab {
   id: string;
@@ -32,6 +33,8 @@ const TABS: Tab[] = [
 
 export function createTabBar(): HTMLElement {
   const nav = el('nav', { className: 'tab-bar' });
+  let badgeEl: HTMLElement | null = null;
+  let groceryCount = 0;
 
   function render() {
     const current = getCurrentRoute();
@@ -43,10 +46,28 @@ export function createTabBar(): HTMLElement {
       });
       item.appendChild(svgIcon(tab.icon));
       item.appendChild(el('span', {}, tab.label));
+
+      if (tab.id === 'grocery') {
+        badgeEl = el('span', { className: 'tab-badge' });
+        badgeEl.textContent = String(groceryCount);
+        if (groceryCount === 0) badgeEl.style.display = 'none';
+        item.appendChild(badgeEl);
+      }
+
       item.addEventListener('click', () => navigateTo(tab.id));
       nav.appendChild(item);
     }
   }
+
+  function updateBadge(count: number) {
+    groceryCount = count;
+    if (badgeEl) {
+      badgeEl.textContent = String(count);
+      badgeEl.style.display = count > 0 ? '' : 'none';
+    }
+  }
+
+  subscribe('grocery-count', (count: number) => updateBadge(count));
 
   render();
   window.addEventListener('hashchange', render);

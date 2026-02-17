@@ -30,6 +30,13 @@ export function createGroceryView(): HTMLElement {
   const summary = el('div', { className: 'summary-bar' });
   container.appendChild(summary);
 
+  // Search bar
+  const searchBar = el('div', { className: 'search-bar' });
+  searchBar.appendChild(svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'));
+  const searchInput = el('input', { className: 'input', type: 'text', placeholder: 'Search grocery list...' });
+  searchBar.appendChild(searchInput);
+  container.appendChild(searchBar);
+
   // Action bar
   const actionBar = el('div', { className: 'input-row' });
   actionBar.style.marginBottom = '16px';
@@ -46,8 +53,13 @@ export function createGroceryView(): HTMLElement {
 
   const clearBtn = el('button', { className: 'btn btn-secondary btn-sm' }, 'Clear Checked');
   on(clearBtn, 'click', async () => {
+    const checkedCount = allItems.filter(i => i.checked).length;
+    if (checkedCount === 0) {
+      showToast('No checked items to clear', 'info');
+      return;
+    }
     await clearCheckedItems();
-    showToast('Checked items cleared', 'info');
+    showToast(`${checkedCount} item${checkedCount !== 1 ? 's' : ''} cleared`, 'info');
     await loadData();
   });
   actionBar.appendChild(clearBtn);
@@ -85,23 +97,32 @@ export function createGroceryView(): HTMLElement {
       : `${checked}/${total} items checked`;
   }
 
+  function getFilteredItems(): GroceryListItem[] {
+    const query = searchInput.value.trim().toLowerCase();
+    if (!query) return allItems;
+    return allItems.filter(i => i.name.toLowerCase().includes(query));
+  }
+
   function renderList() {
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
     listContainer.innerHTML = '';
+    const items = getFilteredItems();
 
-    if (allItems.length === 0) {
+    if (items.length === 0) {
       const empty = el('div', { className: 'empty-state' });
       empty.appendChild(el('p', { className: 'empty-state-text' },
-        'Your grocery list is empty. Set up your typical order in Settings, or tap + to add items.'
+        allItems.length === 0
+          ? 'Your grocery list is empty. Set up your typical order in Settings, or tap + to add items.'
+          : 'No items match your search.'
       ));
       listContainer.appendChild(empty);
       return;
     }
 
     // Sort: unchecked first, then by category
-    const sorted = [...allItems].sort((a, b) => {
+    const sorted = [...items].sort((a, b) => {
       if (a.checked !== b.checked) return a.checked ? 1 : -1;
       return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
     });
@@ -190,6 +211,7 @@ export function createGroceryView(): HTMLElement {
     renderList();
   }
 
+  on(searchInput, 'input', () => renderList());
   loadData();
 
   return container;

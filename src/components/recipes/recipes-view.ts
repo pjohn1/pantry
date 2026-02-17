@@ -226,10 +226,23 @@ export function createRecipesView(): HTMLElement {
     const deleteBtn = el('button', { className: 'btn btn-sm btn-danger' }, 'Del');
     deleteBtn.style.marginLeft = '8px';
     deleteBtn.style.flexShrink = '0';
-    on(deleteBtn, 'click', async () => {
-      await deleteRecipe(recipe.id);
-      showToast('Recipe removed', 'info');
-      await loadData();
+    on(deleteBtn, 'click', () => {
+      openModal('Delete Recipe', (body, close) => {
+        body.appendChild(el('p', {},
+          `Remove "${recipe.title}" and all its ingredient data?`
+        ));
+        const confirmBtn = el('button', { className: 'btn btn-danger btn-block' }, 'Delete Recipe');
+        on(confirmBtn, 'click', async () => {
+          await deleteRecipe(recipe.id);
+          close();
+          showToast('Recipe removed', 'info');
+          await loadData();
+        });
+        body.appendChild(confirmBtn);
+        const cancelBtn = el('button', { className: 'btn btn-secondary btn-block' }, 'Cancel');
+        on(cancelBtn, 'click', close);
+        body.appendChild(cancelBtn);
+      });
     });
     headerRow.appendChild(deleteBtn);
 

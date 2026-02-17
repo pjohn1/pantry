@@ -2,10 +2,19 @@ import { getDB } from '../db/database';
 import type { GroceryListItem, PantryItem, ItemCategory } from '../models/types';
 import { normalizeIngredientName } from '../utils/normalize';
 import { addPantryItemFromPurchase } from './pantry.service';
+import { emit } from '../utils/events';
+
+async function emitGroceryCount(): Promise<void> {
+  const db = await getDB();
+  const items = await db.getAll('groceryList');
+  emit('grocery-count', items.filter(i => !i.checked).length);
+}
 
 export async function getAllGroceryItems(): Promise<GroceryListItem[]> {
   const db = await getDB();
-  return db.getAll('groceryList');
+  const items = await db.getAll('groceryList');
+  emit('grocery-count', items.filter(i => !i.checked).length);
+  return items;
 }
 
 export async function regenerateGroceryList(): Promise<GroceryListItem[]> {
@@ -59,6 +68,7 @@ export async function regenerateGroceryList(): Promise<GroceryListItem[]> {
   }
   await tx.done;
 
+  emit('grocery-count', merged.filter(i => !i.checked).length);
   return merged;
 }
 
@@ -77,6 +87,7 @@ export async function addManualGroceryItem(
     checked: false,
   };
   await db.put('groceryList', item);
+  emitGroceryCount();
   return item;
 }
 
@@ -86,12 +97,14 @@ export async function toggleGroceryItem(id: string): Promise<void> {
   if (item) {
     item.checked = !item.checked;
     await db.put('groceryList', item);
+    emitGroceryCount();
   }
 }
 
 export async function deleteGroceryItem(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('groceryList', id);
+  emitGroceryCount();
 }
 
 export async function clearCheckedItems(): Promise<void> {
@@ -104,6 +117,7 @@ export async function clearCheckedItems(): Promise<void> {
     }
   }
   await tx.done;
+  emitGroceryCount();
 }
 
 export async function purchaseGroceryItem(id: string): Promise<void> {
@@ -118,4 +132,5 @@ export async function purchaseGroceryItem(id: string): Promise<void> {
 
   // Remove from grocery list
   await db.delete('groceryList', id);
+  emitGroceryCount();
 }
