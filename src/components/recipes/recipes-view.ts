@@ -22,7 +22,7 @@ export function createRecipesView(): HTMLElement {
   scanRow.style.marginTop = '8px';
 
   const scanBtn = el('button', { className: 'btn btn-secondary btn-block' });
-  scanBtn.innerHTML = '&#x1F4F7; Scan ingredients from screenshot';
+  scanBtn.textContent = 'Scan ingredients from screenshot';
   on(scanBtn, 'click', () => {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
@@ -179,7 +179,6 @@ export function createRecipesView(): HTMLElement {
 
     if (recipes.length === 0) {
       const empty = el('div', { className: 'empty-state' });
-      empty.innerHTML = '<div class="empty-state-icon">&#x1F4D6;</div>';
       empty.appendChild(el('p', { className: 'empty-state-text' },
         'No saved recipes. Paste a URL or scan a screenshot to get started.'
       ));

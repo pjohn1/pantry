@@ -93,7 +93,6 @@ export function createGroceryView(): HTMLElement {
 
     if (allItems.length === 0) {
       const empty = el('div', { className: 'empty-state' });
-      empty.innerHTML = '<div class="empty-state-icon">&#x1F4DD;</div>';
       empty.appendChild(el('p', { className: 'empty-state-text' },
         'Your grocery list is empty. Set up your typical order in Settings, or tap + to add items.'
       ));

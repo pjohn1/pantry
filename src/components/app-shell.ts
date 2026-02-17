@@ -9,7 +9,6 @@ import { createSettingsView } from './settings/settings-view';
 export function createApp(): void {
   const app = document.getElementById('app')!;
 
-  const header = el('header', { className: 'app-header' }, 'Pantry Tracker');
   const content = el('main', { className: 'app-content' });
   const tabBar = createTabBar();
 
@@ -17,7 +16,6 @@ export function createApp(): void {
   const toastContainer = el('div', { className: 'toast-container' });
   toastContainer.id = 'toast-container';
 
-  app.appendChild(header);
   app.appendChild(content);
   app.appendChild(tabBar);
   app.appendChild(toastContainer);

@@ -104,7 +104,6 @@ export function createPantryView(): HTMLElement {
 
     if (items.length === 0) {
       const empty = el('div', { className: 'empty-state' });
-      empty.innerHTML = '<div class="empty-state-icon">&#x1F6D2;</div>';
       empty.appendChild(el('p', { className: 'empty-state-text' },
         allItems.length === 0
           ? 'Your pantry is empty. Tap + to add items.'
