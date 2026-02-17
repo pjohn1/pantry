@@ -91,3 +91,17 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   dateAdded: number;
 }
+
+export type MealType = 'all' | 'breakfast' | 'lunch' | 'dinner';
+
+export interface SuggestedRecipe {
+  mealDbId: string;
+  title: string;
+  image: string;
+  category: string;
+  ingredients: { name: string; measure: string }[];
+  matchCount: number;
+  totalIngredients: number;
+  matchedNames: string[];
+  missingNames: string[];
+}

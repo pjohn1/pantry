@@ -5,6 +5,7 @@ import { createPantryView } from './pantry/pantry-view';
 import { createGroceryView } from './grocery/grocery-view';
 import { createRecipesView } from './recipes/recipes-view';
 import { createSettingsView } from './settings/settings-view';
+import { createCookView } from './cook/cook-view';
 
 export function createApp(): void {
   const app = document.getElementById('app')!;
@@ -24,6 +25,7 @@ export function createApp(): void {
   registerRoute('pantry', createPantryView);
   registerRoute('grocery', createGroceryView);
   registerRoute('recipes', createRecipesView);
+  registerRoute('cook', createCookView);
   registerRoute('settings', createSettingsView);
 
   initRouter(content);
