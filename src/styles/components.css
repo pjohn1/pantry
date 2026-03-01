@@ -504,18 +504,19 @@
 
 .inspo-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px;
-  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 72px);
+  grid-template-columns: repeat(2, 1fr);
+  gap: 3px;
+  padding: 3px 3px calc(var(--tab-bar-height) + var(--safe-area-bottom) + 72px);
 }
 
 .inspo-cell {
-  aspect-ratio: 1;
+  aspect-ratio: 4/5;
   overflow: hidden;
   cursor: pointer;
   background: var(--color-surface);
   position: relative;
   -webkit-tap-highlight-color: transparent;
+  border-radius: 4px;
 }
 
 .inspo-cell:active { opacity: 0.8; }
@@ -524,15 +525,25 @@
   width: 100%;
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+}
+
+.inspo-placeholder svg {
+  width: 36px;
+  height: 36px;
+  color: rgba(255,255,255,0.85);
+  flex-shrink: 0;
 }
 
 .inspo-placeholder span {
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.7);
-  letter-spacing: 0.3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 .inspo-empty {

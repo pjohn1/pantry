@@ -7,9 +7,9 @@ function detectPlatform(url: string): InspoPlatform {
   return 'other';
 }
 
-async function fetchTikTokThumbnail(url: string): Promise<string> {
+async function fetchOembedThumbnail(oembedUrl: string): Promise<string> {
   try {
-    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`);
+    const res = await fetch(oembedUrl);
     if (!res.ok) return '';
     const data = await res.json();
     return (data.thumbnail_url as string) || '';
@@ -23,7 +23,13 @@ export async function saveInspoUrl(url: string, title?: string): Promise<InspoIt
   let thumbnailUrl = '';
 
   if (platform === 'tiktok') {
-    thumbnailUrl = await fetchTikTokThumbnail(url);
+    thumbnailUrl = await fetchOembedThumbnail(
+      `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
+    );
+  } else if (platform === 'instagram') {
+    thumbnailUrl = await fetchOembedThumbnail(
+      `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&format=json`
+    );
   }
 
   const item: InspoItem = {

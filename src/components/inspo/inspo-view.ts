@@ -1,4 +1,4 @@
-import { el, on } from '../../utils/dom';
+import { el, on, svgIcon } from '../../utils/dom';
 import {
   getAllInspoItems,
   saveInspoUrl,
@@ -10,9 +10,9 @@ import { showToast } from '../shared/toast';
 
 const PLATFORM_COLORS: Record<InspoPlatform, string> = {
   tiktok: '#010101',
-  instagram: '#e1306c',
-  image: '#636366',
-  other: '#3a3a3c',
+  instagram: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+  image: '#3a3a3c',
+  other: '#2c2c2e',
 };
 
 const PLATFORM_LABELS: Record<InspoPlatform, string> = {
@@ -20,6 +20,14 @@ const PLATFORM_LABELS: Record<InspoPlatform, string> = {
   instagram: 'Instagram',
   image: 'Image',
   other: 'Link',
+};
+
+// Simple recognizable icons for each platform
+const PLATFORM_ICONS: Record<InspoPlatform, string> = {
+  tiktok: '<path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>',
+  instagram: '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
+  other: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
 };
 
 function resizeImageToDataUrl(file: File, maxSize = 600): Promise<string> {
@@ -77,6 +85,7 @@ export async function createInspoView(): Promise<HTMLElement> {
     } else {
       const placeholder = el('div', { className: 'inspo-placeholder' });
       placeholder.style.background = PLATFORM_COLORS[item.platform];
+      placeholder.appendChild(svgIcon(PLATFORM_ICONS[item.platform]));
       placeholder.appendChild(el('span', {}, PLATFORM_LABELS[item.platform]));
       cell.appendChild(placeholder);
     }
