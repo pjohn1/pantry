@@ -139,37 +139,34 @@ export async function createInspoView(): Promise<HTMLElement> {
       }
     });
 
-    card.appendChild(thumb);
-
-    // ── Footer ──────────────────────────────────────────────────
+    // ── Overlay footer (inside thumb) ───────────────────────────
     const footer = el('div', { className: 'inspo-footer' });
 
-    // Category badge
+    // Title row
+    const titleEl = el('div', { className: 'inspo-footer-title' },
+      item.title || PLATFORM_LABELS[item.platform]
+    );
+    footer.appendChild(titleEl);
+
+    // Meta row: badge | spacer | edit | delete
+    const meta = el('div', { className: 'inspo-footer-meta' });
+
     if (item.mealCategory) {
       const badge = el('span', { className: 'inspo-cat-badge' },
         RECIPE_MEAL_CATEGORY_LABELS[item.mealCategory]
       );
       badge.style.background = MEAL_CATEGORY_COLORS[item.mealCategory];
-      footer.appendChild(badge);
+      meta.appendChild(badge);
     }
 
-    // Title (falls back to platform label)
-    const titleEl = el('span', { className: 'inspo-footer-title' },
-      item.title || PLATFORM_LABELS[item.platform]
-    );
-    footer.appendChild(titleEl);
+    meta.appendChild(el('div', { className: 'inspo-footer-spacer' }));
 
-    // Edit button
     const editBtn = el('button', { className: 'inspo-icon-btn' });
     editBtn.title = 'Edit';
     editBtn.appendChild(svgIcon(PENCIL_ICON));
-    on(editBtn, 'click', (e) => {
-      e.stopPropagation();
-      openEditModal(item);
-    });
-    footer.appendChild(editBtn);
+    on(editBtn, 'click', (e) => { e.stopPropagation(); openEditModal(item); });
+    meta.appendChild(editBtn);
 
-    // Delete button
     const deleteBtn = el('button', { className: 'inspo-icon-btn inspo-icon-btn-danger' });
     deleteBtn.title = 'Delete';
     deleteBtn.appendChild(svgIcon(TRASH_ICON));
@@ -184,9 +181,11 @@ export async function createInspoView(): Promise<HTMLElement> {
         showToast('Failed to delete', 'error');
       }
     });
-    footer.appendChild(deleteBtn);
+    meta.appendChild(deleteBtn);
 
-    card.appendChild(footer);
+    footer.appendChild(meta);
+    thumb.appendChild(footer);   // footer lives inside the thumbnail
+    card.appendChild(thumb);
     return card;
   }
 
