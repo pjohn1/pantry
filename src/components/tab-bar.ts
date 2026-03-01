@@ -25,9 +25,9 @@ const TABS: Tab[] = [
     icon: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
   },
   {
-    id: 'cook',
-    label: 'Cook',
-    icon: '<path d="M12 3v4M8 4v3M16 4v3"/><path d="M3 11h18"/><path d="M3 15c1.5-1 3-2 4.5-2s3 2 4.5 2 3-1 4.5-2"/><rect x="3" y="11" width="18" height="8" rx="1" fill="none"/><path d="M5 19v2M19 19v2"/>',
+    id: 'inspo',
+    label: 'Saved',
+    icon: '<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>',
   },
   {
     id: 'settings',

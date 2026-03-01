@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from 'idb';
 import type { PantryDB } from './schema';
 
 const DB_NAME = 'pantry-tracker';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<PantryDB>> | null = null;
 
@@ -23,6 +23,9 @@ export function getDB(): Promise<IDBPDatabase<PantryDB>> {
           groceryStore.createIndex('by-category', 'category');
 
           db.createObjectStore('recipes', { keyPath: 'id' });
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore('inspoItems', { keyPath: 'id' });
         }
       },
     });

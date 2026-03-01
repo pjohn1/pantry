@@ -1,5 +1,5 @@
 import type { DBSchema } from 'idb';
-import type { PantryItem, TypicalOrderItem, GroceryListItem, Recipe } from '../models/types';
+import type { PantryItem, TypicalOrderItem, GroceryListItem, Recipe, InspoItem } from '../models/types';
 
 export interface PantryDB extends DBSchema {
   pantryItems: {
@@ -28,5 +28,9 @@ export interface PantryDB extends DBSchema {
   recipes: {
     key: string;
     value: Recipe;
+  };
+  inspoItems: {
+    key: string;
+    value: InspoItem;
   };
 }

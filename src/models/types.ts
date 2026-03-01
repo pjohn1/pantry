@@ -92,16 +92,13 @@ export interface Recipe {
   dateAdded: number;
 }
 
-export type MealType = 'all' | 'breakfast' | 'lunch' | 'dinner';
+export type InspoPlatform = 'tiktok' | 'instagram' | 'image' | 'other';
 
-export interface SuggestedRecipe {
-  mealDbId: string;
+export interface InspoItem {
+  id: string;
+  url: string;
   title: string;
-  image: string;
-  category: string;
-  ingredients: { name: string; measure: string }[];
-  matchCount: number;
-  totalIngredients: number;
-  matchedNames: string[];
-  missingNames: string[];
+  thumbnailUrl: string;
+  platform: InspoPlatform;
+  dateAdded: number;
 }

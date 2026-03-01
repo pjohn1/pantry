@@ -495,6 +495,126 @@
 .ingredient-dot.in-pantry { background: var(--color-success); }
 .ingredient-dot.missing { background: var(--color-danger); }
 
+/* Inspo grid */
+.inspo-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.inspo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 72px);
+}
+
+.inspo-cell {
+  aspect-ratio: 1;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--color-surface);
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.inspo-cell:active { opacity: 0.8; }
+
+.inspo-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inspo-placeholder span {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  letter-spacing: 0.3px;
+}
+
+.inspo-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px var(--spacing-md);
+  text-align: center;
+}
+
+/* Inspo add modal tabs */
+.inspo-modal-tabs {
+  display: flex;
+  gap: 0;
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.inspo-modal-tab {
+  flex: 1;
+  padding: 7px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--color-text-secondary);
+  transition: all 0.1s;
+}
+
+.inspo-modal-tab.active {
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.inspo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inspo-preview {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+/* Full-screen image modal */
+.inspo-image-modal {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.inspo-image-modal img {
+  max-width: 100%;
+  max-height: 85dvh;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
+.inspo-image-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
 /* URL input */
 .url-input-row {
   display: flex;
