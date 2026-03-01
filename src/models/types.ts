@@ -84,12 +84,24 @@ export interface RecipeIngredient {
   inPantry: boolean;
 }
 
+export type RecipeMealCategory = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export const RECIPE_MEAL_CATEGORIES: RecipeMealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+export const RECIPE_MEAL_CATEGORY_LABELS: Record<RecipeMealCategory, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+  snack: 'Snack',
+};
+
 export interface Recipe {
   id: string;
   url: string;
   title: string;
   ingredients: RecipeIngredient[];
   dateAdded: number;
+  mealCategory?: RecipeMealCategory;
 }
 
 export type InspoPlatform = 'tiktok' | 'instagram' | 'image' | 'other';

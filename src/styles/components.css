@@ -626,6 +626,90 @@
   z-index: 1;
 }
 
+/* Recipe view */
+.recipe-add-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recipe-status {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  min-height: 18px;
+}
+
+.recipe-cat-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Category pill: uses --cat-color for active state */
+.recipe-cat-pill.active {
+  background: var(--cat-color, var(--color-accent));
+  color: #fff;
+}
+
+/* Category badge on recipe cards */
+.recipe-cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.2px;
+  margin-bottom: 4px;
+}
+
+/* Recipe card header layout */
+.recipe-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.recipe-card-title-block {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-card-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Icon-only action buttons on recipe cards */
+.recipe-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.recipe-icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.recipe-icon-btn:active { opacity: 0.6; }
+
+.recipe-icon-btn-danger {
+  color: var(--color-danger);
+}
+
 /* URL input */
 .url-input-row {
   display: flex;

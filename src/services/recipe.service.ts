@@ -1,5 +1,5 @@
 import { getDB } from '../db/database';
-import type { Recipe, RecipeIngredient } from '../models/types';
+import type { Recipe, RecipeIngredient, RecipeMealCategory } from '../models/types';
 import { matchIngredientsAgainstPantry } from './ingredient-matcher';
 
 // Configure this to your Cloudflare Worker URL
@@ -15,7 +15,11 @@ interface ProxyResponse {
   }[];
 }
 
-export async function fetchRecipeFromUrl(url: string): Promise<Recipe> {
+export async function fetchRecipeFromUrl(
+  url: string,
+  titleOverride?: string,
+  mealCategory?: RecipeMealCategory,
+): Promise<Recipe> {
   const proxyUrl = `${RECIPE_PROXY_URL}/?url=${encodeURIComponent(url)}`;
   const response = await fetch(proxyUrl);
 
@@ -36,9 +40,10 @@ export async function fetchRecipeFromUrl(url: string): Promise<Recipe> {
   const recipe: Recipe = {
     id: crypto.randomUUID(),
     url,
-    title: recipeData.title,
+    title: titleOverride?.trim() || recipeData.title,
     ingredients,
     dateAdded: Date.now(),
+    mealCategory,
   };
 
   const db = await getDB();
@@ -71,16 +76,35 @@ export async function refreshRecipeMatches(recipe: Recipe): Promise<RecipeIngred
   return updated;
 }
 
-export async function saveScannedRecipe(title: string, ingredients: RecipeIngredient[]): Promise<Recipe> {
+export async function saveScannedRecipe(
+  title: string,
+  ingredients: RecipeIngredient[],
+  mealCategory?: RecipeMealCategory,
+): Promise<Recipe> {
   const recipe: Recipe = {
     id: crypto.randomUUID(),
     url: '',
     title,
     ingredients,
     dateAdded: Date.now(),
+    mealCategory,
   };
 
   const db = await getDB();
   await db.put('recipes', recipe);
   return recipe;
+}
+
+export async function updateRecipe(
+  id: string,
+  updates: { title?: string; mealCategory?: RecipeMealCategory | null },
+): Promise<void> {
+  const db = await getDB();
+  const recipe = await db.get('recipes', id);
+  if (!recipe) return;
+  if (updates.title !== undefined) recipe.title = updates.title;
+  if (updates.mealCategory !== undefined) {
+    recipe.mealCategory = updates.mealCategory ?? undefined;
+  }
+  await db.put('recipes', recipe);
 }
