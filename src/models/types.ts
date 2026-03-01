@@ -112,5 +112,6 @@ export interface InspoItem {
   title: string;
   thumbnailUrl: string;
   platform: InspoPlatform;
+  mealCategory?: RecipeMealCategory;
   dateAdded: number;
 }

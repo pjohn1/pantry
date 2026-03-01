@@ -1,5 +1,5 @@
 import { getDB } from '../db/database';
-import type { InspoItem, InspoPlatform } from '../models/types';
+import type { InspoItem, InspoPlatform, RecipeMealCategory } from '../models/types';
 
 function detectPlatform(url: string): InspoPlatform {
   if (url.includes('tiktok.com')) return 'tiktok';
@@ -18,7 +18,11 @@ async function fetchOembedThumbnail(oembedUrl: string): Promise<string> {
   }
 }
 
-export async function saveInspoUrl(url: string, title?: string): Promise<InspoItem> {
+export async function saveInspoUrl(
+  url: string,
+  title?: string,
+  mealCategory?: RecipeMealCategory,
+): Promise<InspoItem> {
   const platform = detectPlatform(url);
   let thumbnailUrl = '';
 
@@ -38,6 +42,7 @@ export async function saveInspoUrl(url: string, title?: string): Promise<InspoIt
     title: title || '',
     thumbnailUrl,
     platform,
+    mealCategory,
     dateAdded: Date.now(),
   };
 
@@ -46,13 +51,18 @@ export async function saveInspoUrl(url: string, title?: string): Promise<InspoIt
   return item;
 }
 
-export async function saveInspoImage(dataUrl: string, title?: string): Promise<InspoItem> {
+export async function saveInspoImage(
+  dataUrl: string,
+  title?: string,
+  mealCategory?: RecipeMealCategory,
+): Promise<InspoItem> {
   const item: InspoItem = {
     id: crypto.randomUUID(),
     url: '',
     title: title || '',
     thumbnailUrl: dataUrl,
     platform: 'image',
+    mealCategory,
     dateAdded: Date.now(),
   };
 
@@ -70,4 +80,18 @@ export async function getAllInspoItems(): Promise<InspoItem[]> {
 export async function deleteInspoItem(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('inspoItems', id);
+}
+
+export async function updateInspoItem(
+  id: string,
+  updates: { title?: string; mealCategory?: RecipeMealCategory | null },
+): Promise<void> {
+  const db = await getDB();
+  const item = await db.get('inspoItems', id);
+  if (!item) return;
+  if (updates.title !== undefined) item.title = updates.title;
+  if (updates.mealCategory !== undefined) {
+    item.mealCategory = updates.mealCategory ?? undefined;
+  }
+  await db.put('inspoItems', item);
 }
