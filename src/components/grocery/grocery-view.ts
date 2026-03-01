@@ -12,6 +12,8 @@ import { CATEGORY_LABELS, type GroceryListItem, type ItemCategory } from '../../
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
+import { extractReceiptLinesFromImage } from '../../services/ocr.service';
+import { parseReceiptLines, processReceiptAgainstGroceryList } from '../../services/receipt.service';
 
 function sourceLabel(source: string): string {
   switch (source) {
@@ -63,6 +65,65 @@ export function createGroceryView(): HTMLElement {
     await loadData();
   });
   actionBar.appendChild(clearBtn);
+
+  // Hidden file input for receipt image
+  const receiptInput = el('input', {
+    className: 'input',
+    type: 'file',
+    accept: 'image/*',
+  }) as HTMLInputElement;
+  receiptInput.style.display = 'none';
+  container.appendChild(receiptInput);
+
+  const receiptBtn = el('button', { className: 'btn btn-secondary btn-sm' });
+  receiptBtn.appendChild(svgIcon(
+    '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>',
+    16,
+  ));
+  receiptBtn.appendChild(document.createTextNode(' Scan Receipt'));
+  on(receiptBtn, 'click', () => receiptInput.click());
+  on(receiptInput, 'change', async () => {
+    const file = receiptInput.files?.[0];
+    if (!file) return;
+    receiptInput.value = '';
+
+    receiptBtn.textContent = 'Scanning…';
+    receiptBtn.setAttribute('disabled', '');
+
+    try {
+      const rawLines = await extractReceiptLinesFromImage(file);
+      const itemNames = parseReceiptLines(rawLines);
+
+      if (itemNames.length === 0) {
+        showToast('No items found on receipt', 'info');
+        return;
+      }
+
+      const result = await processReceiptAgainstGroceryList(itemNames);
+
+      if (result.matched.length === 0) {
+        showToast('No grocery items matched the receipt', 'info');
+      } else {
+        showToast(
+          `${result.matched.length} item${result.matched.length !== 1 ? 's' : ''} added to pantry`,
+          'success',
+        );
+      }
+
+      await loadData();
+    } catch {
+      showToast('Failed to read receipt', 'error');
+    } finally {
+      receiptBtn.removeAttribute('disabled');
+      receiptBtn.innerHTML = '';
+      receiptBtn.appendChild(svgIcon(
+        '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>',
+        16,
+      ));
+      receiptBtn.appendChild(document.createTextNode(' Scan Receipt'));
+    }
+  });
+  actionBar.appendChild(receiptBtn);
 
   container.appendChild(actionBar);
 
