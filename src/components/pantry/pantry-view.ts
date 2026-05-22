@@ -1,9 +1,10 @@
 import { el, on, svgIcon } from '../../utils/dom';
-import { getAllPantryItems, addPantryItem, updatePantryItem, deletePantryItem, toggleOut } from '../../services/pantry.service';
+import { getAllPantryItems, addPantryItem, updatePantryItem, deletePantryItem, restorePantryItem, toggleOut } from '../../services/pantry.service';
 import { CATEGORIES, CATEGORY_LABELS, type ItemCategory, type PantryItem } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
+import { openBarcodeScanner } from '../shared/barcode-scanner';
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, {
@@ -47,6 +48,35 @@ export function createPantryView(): HTMLElement {
     pills.appendChild(pill);
   }
   container.appendChild(pills);
+
+  // Action bar
+  const actionBar = el('div', { className: 'input-row' });
+  actionBar.style.marginBottom = '16px';
+
+  const scanBtn = el('button', { className: 'btn btn-secondary btn-sm' });
+  scanBtn.appendChild(svgIcon(
+    'M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z',
+    16,
+  ));
+  scanBtn.appendChild(document.createTextNode(' Scan Barcode'));
+  on(scanBtn, 'click', () => {
+    openBarcodeScanner((name, category) => {
+      openModal('Add Pantry Item', (body, close) => {
+        createItemForm(body, {
+          initial: { name, category },
+          submitLabel: 'Add to Pantry',
+          onSubmit: async (data: ItemFormData) => {
+            await addPantryItem(data);
+            close();
+            showToast('Item added', 'success');
+            await loadData();
+          },
+        });
+      });
+    });
+  });
+  actionBar.appendChild(scanBtn);
+  container.appendChild(actionBar);
 
   // Item list
   const listContainer = el('div', { className: 'list-container has-fab' });
@@ -259,9 +289,13 @@ export function createPantryView(): HTMLElement {
         const delBtn2 = el('button', { className: 'btn btn-danger' }, 'Delete');
         delBtn2.style.flex = '1';
         on(delBtn2, 'click', async () => {
+          const savedItem = { ...item };
           await deletePantryItem(item.id);
           body.closest('.modal-overlay')?.remove();
-          showToast('Item removed', 'info');
+          showToast('Item removed', 'info', async () => {
+            await restorePantryItem(savedItem);
+            await loadData();
+          });
           await loadData();
         });
         btnRow.appendChild(delBtn2);

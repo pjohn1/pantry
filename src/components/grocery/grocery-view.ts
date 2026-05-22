@@ -5,6 +5,7 @@ import {
   addManualGroceryItem,
   toggleGroceryItem,
   deleteGroceryItem,
+  restoreGroceryItem,
   clearCheckedItems,
   purchaseGroceryItem,
 } from '../../services/grocery.service';
@@ -14,6 +15,7 @@ import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { extractReceiptLinesFromImage } from '../../services/ocr.service';
 import { parseReceiptLines, processReceiptAgainstGroceryList } from '../../services/receipt.service';
+import { openBarcodeScanner } from '../shared/barcode-scanner';
 
 function sourceLabel(source: string): string {
   switch (source) {
@@ -124,6 +126,30 @@ export function createGroceryView(): HTMLElement {
     }
   });
   actionBar.appendChild(receiptBtn);
+
+  const barcodeScanBtn = el('button', { className: 'btn btn-secondary btn-sm' });
+  barcodeScanBtn.appendChild(svgIcon(
+    'M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z',
+    16,
+  ));
+  barcodeScanBtn.appendChild(document.createTextNode(' Scan Barcode'));
+  on(barcodeScanBtn, 'click', () => {
+    openBarcodeScanner((name, category) => {
+      openModal('Add Grocery Item', (body, close) => {
+        createItemForm(body, {
+          initial: { name, category },
+          submitLabel: 'Add to List',
+          onSubmit: async (data: ItemFormData) => {
+            await addManualGroceryItem(data.name, data.quantity, data.unit, data.category);
+            close();
+            showToast('Item added', 'success');
+            await loadData();
+          },
+        });
+      });
+    });
+  });
+  actionBar.appendChild(barcodeScanBtn);
 
   container.appendChild(actionBar);
 
@@ -255,8 +281,12 @@ export function createGroceryView(): HTMLElement {
     const deleteBtn = el('button', { className: 'btn btn-sm btn-secondary' }, '\u00D7');
     deleteBtn.style.minWidth = '32px';
     on(deleteBtn, 'click', async () => {
+      const savedItem = { ...item };
       await deleteGroceryItem(item.id);
-      showToast('Item removed', 'info');
+      showToast('Item removed', 'info', async () => {
+        await restoreGroceryItem(savedItem);
+        await loadData();
+      });
       await loadData();
     });
     actions.appendChild(deleteBtn);

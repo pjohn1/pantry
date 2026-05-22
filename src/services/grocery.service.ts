@@ -107,6 +107,12 @@ export async function deleteGroceryItem(id: string): Promise<void> {
   emitGroceryCount();
 }
 
+export async function restoreGroceryItem(item: GroceryListItem): Promise<void> {
+  const db = await getDB();
+  await db.put('groceryList', item);
+  emitGroceryCount();
+}
+
 export async function clearCheckedItems(): Promise<void> {
   const db = await getDB();
   const all = await db.getAll('groceryList');

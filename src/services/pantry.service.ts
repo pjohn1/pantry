@@ -36,6 +36,11 @@ export async function deletePantryItem(id: string): Promise<void> {
   await db.delete('pantryItems', id);
 }
 
+export async function restorePantryItem(item: PantryItem): Promise<void> {
+  const db = await getDB();
+  await db.put('pantryItems', item);
+}
+
 export async function getPantryNameSet(): Promise<Set<string>> {
   const items = await getAllPantryItems();
   return new Set(items.map(i => i.normalizedName));

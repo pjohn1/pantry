@@ -13,7 +13,14 @@
       "Bash(npm init:*)",
       "Bash(npm install:*)",
       "Bash(python3:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(gh auth status:*)",
+      "Bash(ssh:*)",
+      "Bash(echo:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "WebFetch(domain:www.themealdb.com)"
     ]
   }
 }

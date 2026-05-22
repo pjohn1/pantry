@@ -820,6 +820,77 @@ html, body {
   color: var(--color-danger);
 }
 
+/* Toast undo */
+.toast.has-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  gap: 12px;
+}
+
+.toast-undo-btn {
+  background: none;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  opacity: 0.9;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+/* Barcode scanner */
+.barcode-viewfinder {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: #000;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.barcode-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.barcode-crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  height: 200px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  pointer-events: none;
+  transition: border-color 0.2s;
+}
+
+.barcode-crosshair.barcode-crosshair-found {
+  border-color: var(--color-success);
+}
+
+.barcode-status {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: 4px 0;
+}
+
+.barcode-unsupported {
+  padding: 24px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
 /* Info sheet */
 .info-sheet {
   display: flex;
