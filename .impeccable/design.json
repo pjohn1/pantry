@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-07T00:00:00Z",
+  "title": "Design System: Pantry",
+  "extensions": {
+    "colorMeta": {
+      "kb-board": { "role": "neutral", "displayName": "Rack Board", "canonical": "#d9d2c2", "tonalRamp": ["#2a2620", "#453f34", "#5f584a", "#7a7160", "#948a76", "#afa48c", "#c9bda3", "#e4dcc9"] },
+      "kb-card": { "role": "neutral", "displayName": "Warm Card Stock", "canonical": "#f5efe0", "tonalRamp": ["#2b271d", "#463f2f", "#615842", "#7c7154", "#988a67", "#b3a57f", "#d3c8a9", "#f5efe0"] },
+      "kb-card-edge": { "role": "neutral", "displayName": "Printed Edge", "canonical": "#c8bfa8", "tonalRamp": ["#28241c", "#413b2e", "#5a5240", "#736952", "#8d8065", "#a7997c", "#c8bfa8", "#e6dfd0"] },
+      "kb-ink": { "role": "neutral", "displayName": "Card Ink", "canonical": "#1a1a17", "tonalRamp": ["#0d0d0b", "#1a1a17", "#33332d", "#4d4d44", "#66665a", "#808071", "#b3b3a4", "#e6e6dd"] },
+      "kb-ink-soft": { "role": "neutral", "displayName": "Soft Ink", "canonical": "#5f5a4e", "tonalRamp": ["#1a1815", "#2f2c26", "#454138", "#5f5a4e", "#7a7365", "#968e7d", "#b8b1a2", "#dbd6cb"] },
+      "kb-out": { "role": "primary", "displayName": "Signal Red (Out)", "canonical": "#a62a1f", "tonalRamp": ["#2e0b07", "#4c1310", "#6b1c16", "#8a231b", "#a62a1f", "#c84a3c", "#e08476", "#f4c3bb"] },
+      "kb-stocked": { "role": "secondary", "displayName": "Stocked Green", "canonical": "#245c33", "tonalRamp": ["#08170d", "#0f2c19", "#173f24", "#1d4d2b", "#245c33", "#3d8a52", "#6bb884", "#b3e2c2"] },
+      "kb-reorder": { "role": "tertiary", "displayName": "Reorder Amber", "canonical": "#7a4e00", "tonalRamp": ["#221500", "#3a2400", "#523300", "#664000", "#7a4e00", "#a86c00", "#dba13d", "#f2d69c"] },
+      "ios-accent": { "role": "primary", "displayName": "iOS System Blue (incumbent)", "canonical": "#0066ff", "tonalRamp": ["#001433", "#002966", "#003d99", "#0052cc", "#0066ff", "#3d8bff", "#7fb2ff", "#cce0ff"] },
+      "ios-bg": { "role": "neutral", "displayName": "iOS Grouped Field (incumbent)", "canonical": "#f5f5f7", "tonalRamp": ["#1c1c1e", "#2c2c2e", "#48484a", "#636366", "#8e8e93", "#c7c7cc", "#e5e5e7", "#f5f5f7"] },
+      "ios-surface": { "role": "neutral", "displayName": "iOS Card White (incumbent)", "canonical": "#ffffff", "tonalRamp": ["#1c1c1e", "#3a3a3c", "#545456", "#7c7c80", "#a1a1a6", "#c7c7cc", "#e5e5e7", "#ffffff"] },
+      "ios-danger": { "role": "primary", "displayName": "iOS System Red (incumbent)", "canonical": "#ff3b30", "tonalRamp": ["#330a08", "#661410", "#991e18", "#cc2f26", "#ff3b30", "#ff6b63", "#ff9c96", "#ffd1ce"] }
+    },
+    "typographyMeta": {
+      "card-name": { "displayName": "Card Name", "purpose": "The item. The only sentence-case string on a card; clamps at two lines." },
+      "bin-tag": { "displayName": "Bin Tag", "purpose": "Sticky category label hanging over its rack; also toolbar and swipe-action words." },
+      "field-label": { "displayName": "Field Label", "purpose": "PAR / NO PAR, unit words, detail-row labels. Always uppercase, always soft ink." },
+      "stamp": { "displayName": "Stamp", "purpose": "The state word inside the bordered ink mark. Never filled." },
+      "numeral": { "displayName": "Numeral", "purpose": "The par value. Tabular, in the darkest ink, one step above its label." },
+      "body": { "displayName": "Body", "purpose": "Notice and empty-state copy only; there is no long-form text in the app." },
+      "field-input": { "displayName": "Field Input", "purpose": "Search and the baseline editor. 16px is an iOS zoom floor, not a taste choice." },
+      "ios-body": { "displayName": "iOS Body (incumbent)", "purpose": "Row names and button labels on un-propagated tabs." },
+      "ios-detail": { "displayName": "iOS Detail (incumbent)", "purpose": "Secondary row text and filter pills on un-propagated tabs." },
+      "ios-label": { "displayName": "iOS Field Label (incumbent)", "purpose": "Uppercase form labels above incumbent inputs." }
+    },
+    "shadows": [
+      { "name": "dock-lift", "value": "0 -6px 16px -8px rgb(0 0 0 / 0.35)", "purpose": "The only shadow in The Kanban Card: separates the fixed dock from the scrolling rack. Nothing else in the world casts." },
+      { "name": "pulled-edge", "value": "inset 3px 0 0 0 var(--kb-out)", "purpose": "Inset edge mark on a pulled card. An edge stamp, not lift." },
+      { "name": "ios-tab-chrome", "value": "backdrop-filter: saturate(180%) blur(20px)", "purpose": "Native iOS bottom-bar chrome, preserved deliberately in both worlds. Not a Kanban device." }
+    ],
+    "motion": [
+      { "name": "swipe-snap", "value": "transform 0.18s cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Row snap open/closed after a 40% throw; suppressed while dragging." },
+      { "name": "press-ground", "value": "background 0.12s ease-out", "purpose": "Card press feedback: a ground shift only, no scale or translate." },
+      { "name": "skeleton-pulse", "value": "1.4s ease-in-out infinite (opacity 1 -> 0.45)", "purpose": "Loading rows while IndexedDB opens; a blank ledger reads as data loss." }
+    ],
+    "breakpoints": [
+      { "name": "wide", "value": "640px" }
+    ],
+    "scope": {
+      "kanban": "Pantry tab only — src/styles/world-kanban.css, scoped to .app-content[data-route='pantry'] and .pantry-view. This is the project's forward direction.",
+      "incumbent": "Grocery, Recipes, Saved, Settings — src/styles/variables.css + src/styles/components.css. Maintenance-only; awaiting propagation.",
+      "shared": "The five-tab bottom bar (src/styles/layout.css) and the Resilience states block at the end of components.css apply app-wide and belong to neither world."
+    },
+    "openDimensions": [
+      "Typographic voice is unclaimed: the system stack was a binding native-feel constraint, so character comes from weight, caps and tracking only. Recorded as unresolved, not as a settled choice."
+    ]
+  },
+  "components": [
+    {
+      "name": "Kanban Card Row",
+      "kind": "card",
+      "refersTo": "kb-card",
+      "description": "One item, one row of card stock on the board: punch hole, name, fixed field track, stamp.",
+      "html": "<div class=\"ds-kb-card\"><span class=\"ds-kb-punch\"></span><button class=\"ds-kb-main\"><span class=\"ds-kb-name\">Bananas</span><span class=\"ds-kb-fields\"><span class=\"ds-kb-flabel\">Par</span><span class=\"ds-kb-num\">6</span><span class=\"ds-kb-funit\">count</span></span></button><span class=\"ds-kb-stamp ds-kb-stamp-stocked\">Stocked</span></div>",
+      "css": ".ds-kb-card { position: relative; display: flex; align-items: center; gap: 10px; width: 100%; min-height: 64px; padding: 10px 12px 10px 8px; border-bottom: 1px solid var(--kb-card-edge, #c8bfa8); background: var(--kb-card, #f5efe0); color: var(--kb-ink, #1a1a17); text-align: left; transition: background 0.12s ease-out; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-card:active { background: color-mix(in srgb, var(--kb-card, #f5efe0) 92%, var(--kb-ink, #1a1a17)); } .ds-kb-punch { flex: none; width: 9px; height: 9px; margin: 0 3px; border: 1.5px solid var(--kb-card-edge, #c8bfa8); border-radius: 50%; } .ds-kb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 4px 0; background: none; border: none; color: inherit; text-align: left; } .ds-kb-main:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; } .ds-kb-name { font-size: 16px; font-weight: 650; letter-spacing: -0.005em; line-height: 1.25; } .ds-kb-fields { display: grid; grid-template-columns: 56px 22px auto; align-items: baseline; gap: 0 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--kb-ink-soft, #5f5a4e); } .ds-kb-flabel { grid-column: 1; } .ds-kb-num { grid-column: 2; text-align: right; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--kb-ink, #1a1a17); } .ds-kb-funit { grid-column: 3; } .ds-kb-stamp { flex: none; padding: 3px 7px; border: 1.5px solid currentColor; border-radius: 2px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; transform: rotate(-2deg); } .ds-kb-stamp-stocked { color: var(--kb-stocked, #245c33); }"
+    },
+    {
+      "name": "Pulled Card Row",
+      "kind": "card",
+      "refersTo": "kb-card-pulled",
+      "description": "A card physically off the rack: ground shifted toward out ink, left edge stamped.",
+      "html": "<div class=\"ds-kb-card-pulled\"><span class=\"ds-kb-punch2\"></span><span class=\"ds-kb-name2\">Butter</span><span class=\"ds-kb-stamp-out\">Out</span></div>",
+      "css": ".ds-kb-card-pulled { display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 10px 12px 10px 8px; border-bottom: 1px solid var(--kb-card-edge, #c8bfa8); background: color-mix(in srgb, var(--kb-card, #f5efe0) 88%, var(--kb-out, #a62a1f)); box-shadow: inset 3px 0 0 0 var(--kb-out, #a62a1f); color: var(--kb-ink, #1a1a17); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-punch2 { flex: none; width: 9px; height: 9px; margin: 0 3px; border: 1.5px solid var(--kb-card-edge, #c8bfa8); border-radius: 50%; } .ds-kb-name2 { flex: 1; font-size: 16px; font-weight: 650; letter-spacing: -0.005em; } .ds-kb-stamp-out { padding: 3px 7px; border: 2px solid currentColor; border-radius: 2px; color: var(--kb-out, #a62a1f); font-size: 10.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; transform: rotate(-2deg); }"
+    },
+    {
+      "name": "Pull Stamp (no baseline)",
+      "kind": "chip",
+      "refersTo": "kb-stamp-plain",
+      "description": "An available action rather than a state: soft ink, dashed, so it spends no signal ink.",
+      "html": "<button class=\"ds-kb-stamp-plain-btn\"><span class=\"ds-kb-stamp-plain\">Pull</span></button>",
+      "css": ".ds-kb-stamp-plain-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; min-height: 44px; background: none; border: none; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-stamp-plain-btn:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; } .ds-kb-stamp-plain { padding: 3px 7px; border: 1.5px dashed currentColor; border-radius: 2px; color: var(--kb-ink-soft, #5f5a4e); font-size: 10.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; transform: rotate(-1deg); } .ds-kb-stamp-plain-btn:active .ds-kb-stamp-plain { color: var(--kb-ink, #1a1a17); }"
+    },
+    {
+      "name": "Bin Tag",
+      "kind": "nav",
+      "refersTo": "kb-bin-tag",
+      "description": "The sticky hanging shelf label that opens each rack, with its pulled count.",
+      "html": "<div class=\"ds-kb-bin\"><span>Dairy</span><span class=\"ds-kb-bin-count\">1 pulled</span></div>",
+      "css": ".ds-kb-bin { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 12px; background: var(--kb-card-edge, #c8bfa8); color: var(--kb-ink, #1a1a17); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; } .ds-kb-bin-count { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; color: var(--kb-ink-soft, #5f5a4e); }"
+    },
+    {
+      "name": "Rack Toolbar (search + pulled filter)",
+      "kind": "input",
+      "refersTo": "kb-search",
+      "description": "The one toolbar row: a card-stock search field plus the only filter in the world.",
+      "html": "<div class=\"ds-kb-toolbar\"><input class=\"ds-kb-search\" placeholder=\"Find a card\"><button class=\"ds-kb-pulled\" aria-pressed=\"false\"><span class=\"ds-kb-pulled-n\">2</span><span>Pulled</span></button></div>",
+      "css": ".ds-kb-toolbar { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 12px; background: var(--kb-board, #d9d2c2); border-bottom: 1px solid var(--kb-card-edge, #c8bfa8); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-search { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 1px solid var(--kb-card-edge, #c8bfa8); border-radius: 2px; background: var(--kb-card, #f5efe0); color: var(--kb-ink, #1a1a17); font-size: 16px; font-weight: 500; } .ds-kb-search::placeholder { color: var(--kb-ink-soft, #5f5a4e); } .ds-kb-search:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; } .ds-kb-pulled { flex: none; display: inline-flex; align-items: baseline; gap: 5px; min-height: 38px; padding: 0 10px; border: 1.5px solid var(--kb-out, #a62a1f); border-radius: 2px; background: transparent; color: var(--kb-out, #a62a1f); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; } .ds-kb-pulled[aria-pressed='true'] { background: var(--kb-out, #a62a1f); color: var(--kb-card, #f5efe0); } .ds-kb-pulled-n { font-size: 14px; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Kanban Buttons (primary / outline / danger)",
+      "kind": "button",
+      "refersTo": "kb-btn-primary",
+      "description": "The detail panel's verbs: one solid-ink primary, then outline and out-ink danger.",
+      "html": "<div class=\"ds-kb-btns\"><button class=\"ds-kb-btn ds-kb-btn-primary\">Pull this card</button><button class=\"ds-kb-btn\">Edit</button><button class=\"ds-kb-btn ds-kb-btn-danger\">Delete</button></div>",
+      "css": ".ds-kb-btns { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: var(--kb-card, #f5efe0); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-btn { min-height: 44px; padding: 0 14px; border: 1.5px solid var(--kb-card-edge, #c8bfa8); border-radius: 2px; background: transparent; color: var(--kb-ink, #1a1a17); font-size: 12px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; } .ds-kb-btn:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; } .ds-kb-btn:active { background: color-mix(in srgb, var(--kb-card, #f5efe0) 92%, var(--kb-ink, #1a1a17)); } .ds-kb-btn-primary { border-color: var(--kb-ink, #1a1a17); background: var(--kb-ink, #1a1a17); color: var(--kb-card, #f5efe0); } .ds-kb-btn-primary:active { background: var(--kb-ink-soft, #5f5a4e); } .ds-kb-btn-danger { border-color: var(--kb-out, #a62a1f); color: var(--kb-out, #a62a1f); }"
+    },
+    {
+      "name": "Thumb-Zone Dock",
+      "kind": "custom",
+      "refersTo": "kb-dock-scan",
+      "description": "The camera path in the reachable half of the screen; typing gets the smaller affordance.",
+      "html": "<div class=\"ds-kb-dock\"><button class=\"ds-kb-dock-btn ds-kb-dock-scan\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><path d=\"M14 14h3v3h-3zM20 14v3M17 20h4\"/></svg><span>Scan</span></button><button class=\"ds-kb-dock-btn ds-kb-dock-new\" aria-label=\"New card\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 5v14M5 12h14\"/></svg></button></div>",
+      "css": ".ds-kb-dock { display: flex; gap: 8px; padding: 8px 12px; background: var(--kb-board, #d9d2c2); border-top: 1px solid var(--kb-card-edge, #c8bfa8); box-shadow: 0 -6px 16px -8px rgb(0 0 0 / 0.35); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-dock-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border-radius: 2px; font-size: 13px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; } .ds-kb-dock-btn svg { width: 18px; height: 18px; } .ds-kb-dock-btn:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; } .ds-kb-dock-scan { flex: 1; border: 2px solid var(--kb-ink, #1a1a17); background: var(--kb-ink, #1a1a17); color: var(--kb-card, #f5efe0); } .ds-kb-dock-scan:active { background: var(--kb-ink-soft, #5f5a4e); } .ds-kb-dock-new { flex: none; width: 60px; border: 2px solid var(--kb-ink, #1a1a17); background: transparent; color: var(--kb-ink, #1a1a17); }"
+    },
+    {
+      "name": "Swipe Actions Layer",
+      "kind": "custom",
+      "refersTo": "kb-swipe-action-pull",
+      "description": "Trailing row actions in signal fills, 86px each, revealed past a 40% throw.",
+      "html": "<div class=\"ds-kb-swipe\"><div class=\"ds-kb-actions\"><button class=\"ds-kb-action ds-kb-action-pull\">Pull</button><button class=\"ds-kb-action ds-kb-action-delete\">Delete</button></div></div>",
+      "css": ".ds-kb-swipe { position: relative; overflow: hidden; min-height: 64px; background: var(--kb-board, #d9d2c2); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-actions { position: absolute; inset: 0 0 0 auto; display: flex; align-items: stretch; } .ds-kb-action { display: inline-flex; align-items: center; justify-content: center; width: 86px; padding: 0 6px; border: none; color: var(--kb-card, #f5efe0); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; } .ds-kb-action:focus-visible { outline: 2px solid var(--kb-card, #f5efe0); outline-offset: -4px; } .ds-kb-action:active { filter: brightness(0.9); } .ds-kb-action-pull { background: var(--kb-reorder, #7a4e00); } .ds-kb-action-restock { background: var(--kb-stocked, #245c33); } .ds-kb-action-delete { background: var(--kb-out, #a62a1f); }"
+    },
+    {
+      "name": "Expand-in-Place Detail",
+      "kind": "custom",
+      "refersTo": "kb-card",
+      "description": "The rack opens rather than stacking: label/value rows on the card's own stock, indented under it.",
+      "html": "<div class=\"ds-kb-detail\"><div class=\"ds-kb-drow\"><span class=\"ds-kb-dlabel\">Bin</span><span class=\"ds-kb-dval\">Produce</span></div><div class=\"ds-kb-drow\"><span class=\"ds-kb-dlabel\">Baseline</span><span class=\"ds-kb-dval\">Not a staple <button class=\"ds-kb-inline\">Make staple</button></span></div></div>",
+      "css": ".ds-kb-detail { padding: 0 12px 12px 32px; background: var(--kb-card, #f5efe0); border-bottom: 1px solid var(--kb-card-edge, #c8bfa8); color: var(--kb-ink, #1a1a17); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-kb-drow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 0; border-top: 1px solid var(--kb-card-edge, #c8bfa8); font-size: 13px; } .ds-kb-dlabel { font-size: 10.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: var(--kb-ink-soft, #5f5a4e); } .ds-kb-dval { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; } .ds-kb-inline { margin-left: 10px; padding: 4px 9px; min-height: 32px; border: 1.5px solid var(--kb-card-edge, #c8bfa8); border-radius: 2px; background: transparent; color: var(--kb-ink, #1a1a17); font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; } .ds-kb-inline:focus-visible { outline: 2px solid var(--kb-ink, #1a1a17); outline-offset: -3px; }"
+    },
+    {
+      "name": "iOS Tab Bar (shared, untouched)",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "The five-tab bottom bar, native by intent and themed by neither world.",
+      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab ds-tab-active\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 10l9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z\"/></svg><span>Pantry</span></a><a class=\"ds-tab\"><svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M6 2h12l2 6H4zM4 8v12a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8\"/></svg><span>Grocery</span></a></nav>",
+      "css": ".ds-tabbar { display: flex; align-items: stretch; height: 50px; background: rgba(255,255,255,0.85); backdrop-filter: saturate(180%) blur(20px); border-top: 0.5px solid var(--color-border, #e5e5e7); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-tab { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; color: var(--color-text-secondary, #86868b); font-size: 10px; font-weight: 500; letter-spacing: 0.01em; transition: color 0.1s; } .ds-tab svg { width: 22px; height: 22px; } .ds-tab-active { color: var(--color-accent, #0066ff); } .ds-tab:focus-visible { outline: 2px solid var(--color-accent, #0066ff); outline-offset: 2px; }"
+    },
+    {
+      "name": "Incumbent Row + Button (un-propagated tabs)",
+      "kind": "button",
+      "refersTo": "ios-btn-primary",
+      "description": "What still governs Grocery, Recipes, Saved and Settings: soft-cornered iOS default. Maintenance-only.",
+      "html": "<div class=\"ds-ios-list\"><div class=\"ds-ios-row\"><div class=\"ds-ios-content\"><div class=\"ds-ios-name\">Olive oil</div><div class=\"ds-ios-detail\">1 bottle</div></div><button class=\"ds-ios-btn ds-ios-btn-primary\">Add</button></div></div>",
+      "css": ".ds-ios-list { background: var(--color-surface, #ffffff); border-radius: 14px; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif; } .ds-ios-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-height: 48px; } .ds-ios-content { flex: 1; min-width: 0; } .ds-ios-name { font-size: 16px; font-weight: 400; color: var(--color-text, #1a1a1a); } .ds-ios-detail { font-size: 13px; color: var(--color-text-secondary, #86868b); margin-top: 1px; } .ds-ios-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; min-height: 44px; border: none; border-radius: 10px; font-size: 15px; font-weight: 500; transition: opacity 0.1s; } .ds-ios-btn:active { opacity: 0.6; } .ds-ios-btn:focus-visible { outline: 2px solid var(--color-accent, #0066ff); outline-offset: 2px; } .ds-ios-btn-primary { background: var(--color-accent, #0066ff); color: #fff; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Kanban Card",
+    "overview": "The lineage is the Toyota kanban signal card and the three-bin reorder system: a printed card that hangs on a rack and exists to say one thing — this bin dropped below par, refill it. Every rule in the forward system serves that sentence. An item is a card, not a tile; its state is a stamp pressed onto card stock, not a filled pill; and the interaction ritual is pulling a card off the rack. The board is duller than the card, so the card reads as a physical object resting on something rather than a painted region of the screen. Corners are effectively square (2px), rules are hairlines in the stock's own edge colour, and colour is spent only where it carries a signal.\n\nScope, as shipped. This world is applied to the Pantry tab only (src/styles/world-kanban.css, scoped to .app-content[data-route='pantry'] and .pantry-view). The other four tabs — Grocery, Recipes, Saved, Settings — still run the incumbent iOS-default system (src/styles/variables.css + src/styles/components.css): blue accent, 10/14/20px radii, white cards on light grey, translucent chrome. That split is a deliberate, accepted, temporary state; propagation of The Kanban Card to the remaining tabs is the next planned step. The Kanban Card is the project's design direction. The incumbent system is maintenance-only — it governs surfaces not yet converted and must not be treated as the target for new work.\n\nTwo constraints from PRODUCT.md bind both systems and explain the shape of the world. First, the artifact is an iPhone-first installed PWA used one-handed in a kitchen and a store aisle, offline, sometimes glanced at between shelves: hence 44px minimum controls, the primary camera path parked in the thumb zone, and a fixed field grid that lets the eye scan a column without re-aiming. Second, the app honours the OS light/dark setting with no manual toggle, so every value must clear contrast on its own ground in both themes. The five-tab bottom bar keeps its native iOS affordances in all cases and is out of scope for either world.",
+    "keyCharacteristics": [
+      "Card stock and board, not surface and background: paper values (#f5efe0 on #d9d2c2) in light, graphite on near-black in dark",
+      "Squared-off geometry — one radius (2px) across the entire Pantry world",
+      "State is stamped ink, never a colour fill",
+      "Colour is a signal (stocked / reorder / out) and is never used decoratively",
+      "Uppercase, heavily tracked micro-labels carry all secondary information",
+      "Edge-to-edge rack: no floating panels, no inset cards, no elevation"
+    ],
+    "rules": [
+      { "name": "The Signal Ink Rule", "body": "Colour in The Kanban Card is a signal or it does not appear. Stocked green, reorder amber and out red mean exactly one thing each; nothing in the world is coloured to look nice, to brand a surface, or to distinguish a section. If a new element cannot name which signal it carries, it is ink, soft ink, or stock.", "section": "colors" },
+      { "name": "The Stock, Not Tint Rule", "body": "Dark mode changes the card stock and the board, then re-picks the signal inks to hold on that stock. Never derive a dark palette by tinting, dimming, or overlaying the light values.", "section": "colors" },
+      { "name": "The Own-Ground Rule", "body": "Every text colour clears AA-normal against the ground it actually sits on, in both themes — verified in the shipped build: ink 15.20:1 / 14.53:1, soft ink 5.98 / 6.63, out 6.16 / 6.01, reorder 6.27 / 7.82, stocked 6.90 / 8.08. A colour whose only viable form is white-on-fill does not enter this system; the design it replaced measured 2.20:1 on filled state buttons.", "section": "colors" },
+      { "name": "The Binary Depletion Rule", "body": "Status colour is derived from isOut alone, never from a quantity. A par number on a card is reference information rendered in ink and soft ink; it never drives a signal colour, a progress meter, or a gradient.", "section": "colors" },
+      { "name": "The Fixed Track Rule", "body": "Micro-labels and their numbers sit on a fixed grid (56px 22px auto), so the label and the number occupy a constant x on every row — measured at x=33 with a right edge of 115 across all rows in the shipped build. tabular-nums alone is insufficient: it locks glyph advance, not column origin. Any new row-level field set uses a grid, not inline flow.", "section": "typography" },
+      { "name": "The Caps-For-Everything-But-The-Name Rule", "body": "In The Kanban Card, the item name is the only sentence-case string on a card. Labels, states, counts, and button words are uppercase and tracked. Never introduce a sentence-case secondary line to a card row.", "section": "typography" },
+      { "name": "The 16px Field Floor Rule", "body": "Any focusable text or number input is at least 16px.", "section": "typography" },
+      { "name": "The Edge-to-Edge Rack Rule", "body": "The card grid is the composition, not content inside a panel. Cards span the full viewport width and are separated by hairlines; never inset the rack, never round the rack, never float a card.", "section": "layout" },
+      { "name": "The Thumb-Zone Camera Rule", "body": "The dominant primary action in a one-handed view is the camera, and it lives in the fixed dock above the tab bar. Typing is the smaller neighbouring affordance.", "section": "layout" },
+      { "name": "The Flat Stock Rule", "body": "Surfaces do not lift. Depth is expressed by stock value (board to card to tag) and by 1px card-edge rules. A new Pantry-world element that needs to feel separate changes its ground or gains a rule; it does not gain a shadow.", "section": "elevation" },
+      { "name": "The Opaque Chrome Rule", "body": "Sticky and fixed chrome inside The Kanban Card is painted with the solid board colour. Translucency was tried on the dock and rejected: text ghosting through a rail reads as a rendering defect, not as material.", "section": "elevation" },
+      { "name": "The One Radius Rule", "body": "Everything in The Kanban Card that has a corner has a 2px corner. Full-bleed stock has none. There is no radius scale in this world; a pill, a capsule, or a 12px card belongs to the incumbent system.", "section": "shapes" },
+      { "name": "The Stamp-Is-Rotated Rule", "body": "State marks sit off-axis by 1-2 degrees. Nothing else in the world rotates.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do build new Pantry-tab surfaces from --kb-* tokens only, and give any new view that needs its own gutters a data-route opt-out rather than fighting .app-content's padding.",
+      "Do express state as a bordered ink stamp on stock, tilted 1-2 degrees, with a word that survives greyscale.",
+      "Do put row-level labels and numbers on a fixed grid (56px 22px auto) so they hold a constant x down the rack; tabular-nums alone is not sufficient.",
+      "Do keep one radius (2px) in The Kanban Card, and no radius at all on full-bleed stock.",
+      "Do verify every new text colour at AA-normal against the ground it actually sits on, in both light and dark, before it enters the system.",
+      "Do change the card stock and re-pick the signal inks for dark mode, rather than tinting the light palette.",
+      "Do keep the primary camera action in the fixed dock in the thumb zone, with 44px minimum controls throughout.",
+      "Do paint sticky and fixed chrome with the solid board colour.",
+      "Do leave the five-tab bottom bar and the shared resilience layer exactly as they are.",
+      "Do treat un-propagated tabs as maintenance: patch them in the incumbent system's own vocabulary until The Kanban Card is propagated, and convert a whole tab at once rather than blending the two."
+    ],
+    "donts": [
+      "Don't use colour decoratively in The Kanban Card. If an element's colour cannot be named as stocked, reorder, or out, it is ink, soft ink, or stock.",
+      "Don't derive a status colour, meter, or gradient from a quantity. Depletion is binary and comes from isOut alone.",
+      "Don't express state as a filled pill with white text; that is the pattern this world replaced, and it measured 2.20:1.",
+      "Don't add shadows to Pantry-world surfaces. The only shadow in the world is the dock's lift.",
+      "Don't make Pantry chrome translucent; text ghosting through a rail reads as a defect.",
+      "Don't introduce pill or capsule radii, circular icon buttons, or the incumbent 10/14/20px radius scale into The Kanban Card.",
+      "Don't inset, round, or float the rack, and don't turn a card row into a tile.",
+      "Don't open a modal for a row's detail; expand it in place, one at a time.",
+      "Don't put a sentence-case secondary line on a card; secondary text is uppercase and tracked.",
+      "Don't ship a focusable text or number input below 16px.",
+      "Don't restyle the bottom tab bar in either world.",
+      "Don't extend the incumbent iOS-default system with new patterns, and don't cite it as the project's design direction; it is what still governs un-propagated tabs, nothing more."
+    ]
+  }
+}

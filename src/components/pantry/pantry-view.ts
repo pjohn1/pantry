@@ -1,329 +1,505 @@
 import { el, on, svgIcon } from '../../utils/dom';
-import { getAllPantryItems, addPantryItem, updatePantryItem, deletePantryItem, restorePantryItem, toggleOut } from '../../services/pantry.service';
-import { CATEGORIES, CATEGORY_LABELS, type ItemCategory, type PantryItem } from '../../models/types';
+import {
+  getAllPantryItems, addPantryItem, updatePantryItem,
+  deletePantryItem, restorePantryItem, toggleOut,
+} from '../../services/pantry.service';
+import {
+  getAllTypicalOrderItems, addTypicalOrderItem, updateTypicalOrderItem,
+} from '../../services/typical-order.service';
+import {
+  CATEGORIES, CATEGORY_LABELS,
+  type PantryItem, type TypicalOrderItem,
+} from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
+import { createSwipeRow, closeAnyOpenSwipeRow } from '../shared/swipe-row';
+
+// svgIcon() assigns innerHTML, so an icon must be markup, not a bare `d`.
+const ICON_BARCODE =
+  '<path d="M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z"/>';
+const ICON_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
 
 function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric',
+  const d = new Date(ts);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
   });
 }
+
+/**
+ * A kanban card is on the bin or it has been pulled — nothing in between.
+ * That is also what this product decided: depletion is binary, and the
+ * recorded quantity is reference information, not a tracked value. So the
+ * signal is never derived from quantity; it comes from `isOut` alone.
+ *
+ * `plain` is an item with no declared baseline: it can still be pulled, but
+ * there is no baseline to measure it against, so it spends no signal ink.
+ */
+type CardStatus = 'out' | 'stocked' | 'plain';
+
+interface Card {
+  item: PantryItem;
+  /** The typical-order entry that declares this item a staple, if any. */
+  typical: TypicalOrderItem | null;
+  status: CardStatus;
+}
+
+const STATUS_RANK: Record<CardStatus, number> = { out: 0, stocked: 1, plain: 2 };
+
+/** Colour is reserved for a declared state; a bare action stays neutral. */
+const STAMP: Record<CardStatus, { label: string; cls: string; action: string }> = {
+  out: { label: 'Out', cls: 'kb-stamp--out', action: 'put back on the rack' },
+  stocked: { label: 'Stocked', cls: 'kb-stamp--stocked', action: 'pull this card' },
+  plain: { label: 'Pull', cls: 'kb-stamp--plain', action: 'pull this card' },
+};
 
 export function createPantryView(): HTMLElement {
   const container = el('div', { className: 'pantry-view' });
 
-  // Summary bar
-  const summary = el('div', { className: 'summary-bar' });
-  container.appendChild(summary);
+  // ── Toolbar ────────────────────────────────────────────────────
+  const toolbar = el('div', { className: 'kb-toolbar' });
 
-  // Search bar
-  const searchBar = el('div', { className: 'search-bar' });
-  searchBar.appendChild(svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'));
-  const searchInput = el('input', { className: 'input', type: 'text', placeholder: 'Search pantry...' });
-  searchBar.appendChild(searchInput);
-  container.appendChild(searchBar);
+  const searchInput = el('input', {
+    className: 'kb-search',
+    type: 'search',
+    placeholder: 'Find a card',
+    'aria-label': 'Search pantry',
+    autocapitalize: 'none',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'search',
+  }) as HTMLInputElement;
+  toolbar.appendChild(searchInput);
 
-  // Filter pills
-  const pills = el('div', { className: 'filter-pills' });
-  let activeFilter: ItemCategory | null = null;
+  const pulledBtn = el('button', {
+    className: 'kb-pulled',
+    'aria-pressed': 'false',
+  }) as HTMLButtonElement;
+  const pulledN = el('span', { className: 'kb-pulled-n' }, '0');
+  pulledBtn.appendChild(pulledN);
+  pulledBtn.appendChild(el('span', {}, 'pulled'));
+  toolbar.appendChild(pulledBtn);
+  container.appendChild(toolbar);
 
-  const allPill = el('button', { className: 'filter-pill active' }, 'All');
-  on(allPill, 'click', () => {
-    activeFilter = null;
-    renderPills();
-    renderList();
-  });
-  pills.appendChild(allPill);
+  const rackContainer = el('div', { className: 'kb-racks' });
+  container.appendChild(rackContainer);
 
-  for (const cat of CATEGORIES) {
-    const pill = el('button', { className: 'filter-pill' }, CATEGORY_LABELS[cat]);
-    on(pill, 'click', () => {
-      activeFilter = cat;
-      renderPills();
-      renderList();
-    });
-    pills.appendChild(pill);
-  }
-  container.appendChild(pills);
+  // ── Dock: the camera owns the thumb zone ───────────────────────
+  const dock = el('div', { className: 'kb-dock' });
 
-  // Action bar
-  const actionBar = el('div', { className: 'input-row' });
-  actionBar.style.marginBottom = '16px';
-
-  const scanBtn = el('button', { className: 'btn btn-secondary btn-sm' });
-  scanBtn.appendChild(svgIcon(
-    'M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z',
-    16,
-  ));
-  scanBtn.appendChild(document.createTextNode(' Scan Barcode'));
+  const scanBtn = el('button', { className: 'kb-dock-btn kb-dock-scan' });
+  scanBtn.appendChild(svgIcon(ICON_BARCODE, 18));
+  scanBtn.appendChild(el('span', {}, 'Scan'));
   on(scanBtn, 'click', () => {
-    openBarcodeScanner((name, category) => {
-      openModal('Add Pantry Item', (body, close) => {
-        createItemForm(body, {
-          initial: { name, category },
-          submitLabel: 'Add to Pantry',
-          onSubmit: async (data: ItemFormData) => {
-            await addPantryItem(data);
-            close();
-            showToast('Item added', 'success');
-            await loadData();
-          },
-        });
-      });
-    });
+    openBarcodeScanner((name, category) => openItemForm({ name, category }));
   });
-  actionBar.appendChild(scanBtn);
-  container.appendChild(actionBar);
+  dock.appendChild(scanBtn);
 
-  // Item list
-  const listContainer = el('div', { className: 'list-container has-fab' });
-  container.appendChild(listContainer);
+  const newBtn = el('button', {
+    className: 'kb-dock-btn kb-dock-new',
+    'aria-label': 'New card',
+  });
+  newBtn.appendChild(svgIcon(ICON_PLUS, 20));
+  on(newBtn, 'click', () => openItemForm());
+  dock.appendChild(newBtn);
+  container.appendChild(dock);
 
-  // FAB
-  const fab = el('button', { className: 'fab' }, '+');
-  on(fab, 'click', () => {
-    openModal('Add Pantry Item', (body, close) => {
+  // ── State ──────────────────────────────────────────────────────
+  let cards: Card[] = [];
+  let loadFailed = false;
+  let pulledOnly = false;
+  let openCardId: string | null = null;
+  /** Set before a write so focus returns to the card after the re-render. */
+  let refocusCardId: string | null = null;
+
+  async function mutate(run: () => Promise<void>, failure: string): Promise<boolean> {
+    try {
+      await run();
+      return true;
+    } catch {
+      showToast(failure, 'error', async () => {
+        if (await mutate(run, failure)) await loadData();
+      }, 'Retry');
+      await loadData();
+      return false;
+    }
+  }
+
+  function openItemForm(initial?: Partial<ItemFormData>, existing?: PantryItem) {
+    openModal(existing ? 'Edit card' : 'New card', (body, close) => {
       createItemForm(body, {
-        submitLabel: 'Add to Pantry',
+        initial: initial ?? (existing
+          ? { name: existing.name, quantity: existing.quantity, unit: existing.unit, category: existing.category }
+          : undefined),
+        submitLabel: existing ? 'Save' : 'Add card',
         onSubmit: async (data: ItemFormData) => {
-          await addPantryItem(data);
+          const ok = await mutate(
+            async () => {
+              if (existing) await updatePantryItem({ ...existing, ...data });
+              else await addPantryItem(data);
+            },
+            existing ? `Couldn’t save changes to ${data.name}.` : `Couldn’t save ${data.name}.`,
+          );
+          if (!ok) return;
           close();
-          showToast('Item added', 'success');
+          showToast(existing ? 'Card updated' : 'Card added', 'success');
           await loadData();
         },
       });
     });
-  });
-  container.appendChild(fab);
-
-  let allItems: PantryItem[] = [];
-
-  function updateSummary() {
-    const total = allItems.length;
-    const outCount = allItems.filter(i => i.isOut).length;
-    if (total === 0) {
-      summary.textContent = 'No items in your pantry';
-    } else if (outCount > 0) {
-      summary.textContent = `${total} item${total !== 1 ? 's' : ''} \u00B7 ${outCount} out of stock`;
-    } else {
-      summary.textContent = `${total} item${total !== 1 ? 's' : ''} in stock`;
-    }
   }
 
-  function renderPills() {
-    const buttons = pills.querySelectorAll('.filter-pill');
-    buttons.forEach((btn, i) => {
-      if (i === 0) {
-        btn.className = `filter-pill${activeFilter === null ? ' active' : ''}`;
-      } else {
-        const cat = CATEGORIES[i - 1];
-        btn.className = `filter-pill${activeFilter === cat ? ' active' : ''}`;
-      }
-    });
-  }
+  // ── Derivation ─────────────────────────────────────────────────
 
-  function getFilteredItems(): PantryItem[] {
-    let items = allItems;
-    if (activeFilter) {
-      items = items.filter(i => i.category === activeFilter);
-    }
+  function visibleCards(): Card[] {
+    let list = cards;
+    if (pulledOnly) list = list.filter(c => c.status === 'out');
     const query = searchInput.value.trim().toLowerCase();
-    if (query) {
-      items = items.filter(i => i.name.toLowerCase().includes(query));
-    }
-    // Sort: out items at bottom, then alphabetical
-    return items.sort((a, b) => {
-      if (a.isOut !== b.isOut) return a.isOut ? 1 : -1;
-      return a.name.localeCompare(b.name);
-    });
+    if (query) list = list.filter(c => c.item.name.toLowerCase().includes(query));
+    return list;
   }
 
-  function renderList() {
+  function updatePulled() {
+    const out = cards.filter(c => c.status === 'out').length;
+    pulledN.textContent = String(out);
+    pulledBtn.hidden = out === 0;
+    if (out === 0 && pulledOnly) pulledOnly = false;
+    pulledBtn.setAttribute('aria-pressed', String(pulledOnly));
+  }
+
+  // ── Render ─────────────────────────────────────────────────────
+
+  function renderSkeleton() {
+    rackContainer.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const row = el('div', { className: 'kb-skeleton' });
+      row.appendChild(el('div', { className: 'kb-skeleton-line' }));
+      rackContainer.appendChild(row);
+    }
+  }
+
+  function notice(text: string, actionLabel?: string, onAction?: () => void): HTMLElement {
+    const box = el('div', { className: 'kb-notice' });
+    box.appendChild(el('p', { className: 'kb-notice-text' }, text));
+    if (actionLabel && onAction) {
+      const btn = el('button', { className: 'kb-btn' }, actionLabel);
+      on(btn, 'click', onAction);
+      box.appendChild(btn);
+    }
+    return box;
+  }
+
+  function emptyText(): string {
+    const query = searchInput.value.trim();
+    if (cards.length === 0) return 'No cards on the rack yet. Scan a barcode, or add one by hand.';
+    if (pulledOnly) return 'No cards are pulled. Nothing is waiting to be restocked.';
+    if (query) return `No card matches “${query}”.`;
+    return 'Nothing to show.';
+  }
+
+  function renderRacks() {
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
-    const items = getFilteredItems();
-    listContainer.innerHTML = '';
+    closeAnyOpenSwipeRow();
+    rackContainer.innerHTML = '';
 
-    if (items.length === 0) {
-      const empty = el('div', { className: 'empty-state' });
-      empty.appendChild(el('p', { className: 'empty-state-text' },
-        allItems.length === 0
-          ? 'Your pantry is empty. Tap + to add items.'
-          : 'No items match your filter.'
+    if (loadFailed) {
+      rackContainer.appendChild(notice(
+        'Couldn’t read the rack from this device’s storage.',
+        'Try again',
+        () => { renderSkeleton(); void loadData(); },
       ));
-      listContainer.appendChild(empty);
       return;
     }
 
-    // Group by category
-    const grouped = new Map<ItemCategory, PantryItem[]>();
-    for (const item of items) {
-      const list = grouped.get(item.category) || [];
-      list.push(item);
-      grouped.set(item.category, list);
+    const list = visibleCards();
+    if (list.length === 0) {
+      rackContainer.appendChild(notice(emptyText()));
+      return;
     }
 
-    for (const [cat, catItems] of grouped) {
-      const section = el('div', { className: 'section-group' });
-      const header = el('div', { className: 'section-header' });
-      header.appendChild(el('span', { className: 'section-title' }, CATEGORY_LABELS[cat]));
-      header.appendChild(el('span', { className: 'section-title' }, String(catItems.length)));
-      section.appendChild(header);
+    // Canonical category order, so section position never shifts as items
+    // are added and muscle memory can actually form.
+    for (const cat of CATEGORIES) {
+      const inCat = list.filter(c => c.item.category === cat);
+      if (inCat.length === 0) continue;
 
-      const list = el('div', { className: 'item-list' });
-      for (const item of catItems) {
-        list.appendChild(createItemRow(item));
+      inCat.sort((a, b) =>
+        STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+        a.item.name.localeCompare(b.item.name));
+
+      const rack = el('div', { className: 'kb-rack' });
+      const tag = el('div', { className: 'kb-bin-tag' });
+      tag.appendChild(el('span', {}, CATEGORY_LABELS[cat]));
+      // One stable meaning: how many cards are off this bin, and nothing at
+      // all when the bin is whole, so the slot only ever reports a problem.
+      const pulledHere = inCat.filter(c => c.status === 'out').length;
+      if (pulledHere > 0) {
+        tag.appendChild(el('span', { className: 'kb-bin-count' }, `${pulledHere} pulled`));
       }
-      section.appendChild(list);
-      listContainer.appendChild(section);
+      rack.appendChild(tag);
+
+      for (const card of inCat) rack.appendChild(renderCard(card));
+      rackContainer.appendChild(rack);
     }
 
     if (scrollParent) {
+      requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
+    }
+
+    if (refocusCardId) {
+      const id = refocusCardId;
+      refocusCardId = null;
       requestAnimationFrame(() => {
-        scrollParent.scrollTop = scrollTop;
+        rackContainer
+          .querySelector<HTMLElement>(`[data-card-id="${id}"] .kb-card-main`)
+          ?.focus();
       });
     }
   }
 
-  function createItemRow(item: PantryItem): HTMLElement {
-    const row = el('div', { className: `item-row${item.isOut ? ' item-out' : ''}` });
+  function renderCard(card: Card): HTMLElement {
+    const { item, typical, status } = card;
+    const holder = el('div', {});
+    holder.dataset.cardId = item.id;
 
-    const content = el('div', { className: 'item-row-content' });
-    content.appendChild(el('div', { className: 'item-row-name' }, item.name));
+    // Not a button: the row carries two distinct actions, and a button
+    // inside a button is invalid.
+    const surface = el('div', { className: `kb-card${status === 'out' ? ' is-pulled' : ''}` });
+    surface.appendChild(el('span', { className: 'kb-punch' }));
 
-    if (item.isOut) {
-      content.appendChild(el('div', { className: 'item-row-detail' },
-        `${item.quantity} ${item.unit} \u2022 Out`
-      ));
+    const main = el('button', {
+      className: 'kb-card-main',
+      'aria-expanded': String(openCardId === item.id),
+    });
+    main.appendChild(el('span', { className: 'kb-card-name' }, item.name));
+
+    // The baseline is the mechanism, and it is the one number worth reading
+    // in an aisle: it says how many to buy. The recorded quantity is
+    // reference information and lives in the detail, where it cannot be
+    // mistaken for the current ledger.
+    const fields = el('span', { className: 'kb-fields' });
+    if (typical) {
+      fields.appendChild(el('span', { className: 'kb-field-label' }, 'Par'));
+      fields.appendChild(el('span', { className: 'kb-num' }, String(typical.quantity)));
+      fields.appendChild(el('span', { className: 'kb-field-unit' }, typical.unit));
     } else {
-      // Inline quantity stepper
-      const stepper = el('div', { className: 'qty-stepper' });
-
-      const minusBtn = el('button', { className: 'qty-stepper-btn' }, '\u2212');
-      on(minusBtn, 'click', async (e) => {
-        e.stopPropagation();
-        if (item.quantity <= 1) return;
-        item.quantity = Math.max(0, item.quantity - 1);
-        await updatePantryItem(item);
-        await loadData();
-      });
-      stepper.appendChild(minusBtn);
-
-      const valEl = el('span', { className: 'qty-stepper-val' }, `${item.quantity} ${item.unit}`);
-      stepper.appendChild(valEl);
-
-      const plusBtn = el('button', { className: 'qty-stepper-btn' }, '+');
-      on(plusBtn, 'click', async (e) => {
-        e.stopPropagation();
-        item.quantity += 1;
-        await updatePantryItem(item);
-        await loadData();
-      });
-      stepper.appendChild(plusBtn);
-
-      content.appendChild(stepper);
+      fields.appendChild(el('span', { className: 'kb-field-label' }, 'No par'));
     }
+    main.appendChild(fields);
+    surface.appendChild(main);
 
-    row.appendChild(content);
+    on(main, 'click', () => toggleDetail(card, holder, main));
 
-    const actions = el('div', { className: 'item-row-actions' });
+    // The stamp is the primary action, because stamping a card is this
+    // world's own ritual for pulling it. Before this, the only way to pull
+    // was a horizontal swipe, which left the whole aisle loop behind a
+    // gesture nothing on screen advertised.
+    const stamp = STAMP[status];
+    const stampBtn = el('button', {
+      className: 'kb-stamp-btn',
+      'aria-label': `${item.name}: ${stamp.action}`,
+    });
+    stampBtn.appendChild(el('span', { className: `kb-stamp ${stamp.cls}` }, stamp.label));
+    on(stampBtn, 'click', () => void pull(item));
+    surface.appendChild(stampBtn);
 
-    // Out toggle
-    const outBtn = el('button', {
-      className: `btn btn-sm ${item.isOut ? 'btn-success' : 'btn-warning'}`,
-    }, item.isOut ? 'In' : 'Out');
-    on(outBtn, 'click', async () => {
-      const isNowOut = await toggleOut(item.id);
-      showToast(isNowOut ? 'Marked out \u2014 added to grocery list' : 'Marked back in', 'success');
+    // Swipe stays, as the accelerator rather than the only door.
+    holder.appendChild(createSwipeRow(surface, [
+      item.isOut
+        ? { label: 'Restock', className: 'kb-action--restock', onAction: () => void pull(item) }
+        : { label: 'Pull', className: 'kb-action--pull', onAction: () => void pull(item) },
+      { label: 'Delete', className: 'kb-action--delete', onAction: () => void remove(item) },
+    ]));
+
+    if (openCardId === item.id) holder.appendChild(renderDetail(card));
+    return holder;
+  }
+
+  /** Expands in place without rebuilding the rack, so focus and scroll hold. */
+  function toggleDetail(card: Card, holder: HTMLElement, main: HTMLElement) {
+    if (openCardId === card.item.id) {
+      openCardId = null;
+      holder.querySelector('.kb-detail')?.remove();
+      main.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    if (openCardId) {
+      const prev = rackContainer.querySelector(`[data-card-id="${openCardId}"]`);
+      prev?.querySelector('.kb-detail')?.remove();
+      prev?.querySelector('.kb-card-main')?.setAttribute('aria-expanded', 'false');
+    }
+    openCardId = card.item.id;
+    holder.appendChild(renderDetail(card));
+    main.setAttribute('aria-expanded', 'true');
+  }
+
+  function renderDetail(card: Card): HTMLElement {
+    const { item, typical } = card;
+    const detail = el('div', { className: 'kb-detail' });
+
+    const row = (label: string, value: string) => {
+      const r = el('div', { className: 'kb-detail-row' });
+      r.appendChild(el('span', { className: 'kb-detail-label' }, label));
+      r.appendChild(el('span', { className: 'kb-detail-val' }, value));
+      detail.appendChild(r);
+      return r;
+    };
+
+    // The card row clamps long names; the full text has to live somewhere.
+    row('Name', item.name);
+    row('Bin', CATEGORY_LABELS[item.category]);
+
+    // Declaring a staple was only possible from Settings, so most cards read
+    // "No par" and the mechanism had almost nothing to show. It is now set
+    // from the card it describes.
+    const baselineRow = row('Baseline', typical ? `${typical.quantity} ${typical.unit}` : 'Not a staple');
+    const baselineBtn = el('button', { className: 'kb-inline-btn' },
+      typical ? 'Change' : 'Make staple');
+    on(baselineBtn, 'click', () => {
+      baselineBtn.remove();
+      const editor = el('span', { className: 'kb-baseline-edit' });
+      const input = el('input', {
+        className: 'kb-baseline-input',
+        type: 'number',
+        min: '1',
+        step: '1',
+        'aria-label': `Baseline for ${item.name}`,
+      }) as HTMLInputElement;
+      input.value = String(typical?.quantity ?? item.quantity ?? 1);
+      const save = el('button', { className: 'kb-inline-btn' }, 'Set');
+      on(save, 'click', async () => {
+        const n = Math.max(1, Math.round(parseFloat(input.value) || 1));
+        refocusCardId = item.id;
+        const ok = await mutate(
+          async () => {
+            if (typical) await updateTypicalOrderItem({ ...typical, quantity: n });
+            else await addTypicalOrderItem({
+              name: item.name, quantity: n, unit: item.unit, category: item.category,
+            });
+          },
+          `Couldn’t set a baseline for ${item.name}.`,
+        );
+        if (!ok) return;
+        showToast(typical ? 'Baseline updated' : `${item.name} is now a staple`, 'success');
+        await loadData();
+      });
+      editor.appendChild(input);
+      editor.appendChild(save);
+      baselineRow.appendChild(editor);
+      input.focus();
+    });
+    baselineRow.appendChild(baselineBtn);
+
+    // Reference only, and dated, so it can never read as the live ledger.
+    row('Recorded', `${item.quantity} ${item.unit} · ${formatDate(item.dateAdded)}`);
+    if (item.purchaseDate) row('Last bought', formatDate(item.purchaseDate));
+
+    // The primary action gets the first and widest slot.
+    const primary = el('button', { className: 'kb-btn kb-btn--primary' },
+      item.isOut ? 'Put back on the rack' : 'Pull this card');
+    on(primary, 'click', () => void pull(item));
+    detail.appendChild(primary);
+
+    const actions = el('div', { className: 'kb-detail-actions' });
+    const editBtn = el('button', { className: 'kb-btn' }, 'Edit');
+    on(editBtn, 'click', () => openItemForm(undefined, item));
+    actions.appendChild(editBtn);
+
+    const delBtn = el('button', { className: 'kb-btn kb-btn--danger' }, 'Delete') as HTMLButtonElement;
+    on(delBtn, 'click', async () => {
+      delBtn.disabled = true;
+      await remove(item);
+      delBtn.disabled = false;
+    });
+    actions.appendChild(delBtn);
+    detail.appendChild(actions);
+
+    return detail;
+  }
+
+  // ── Actions ────────────────────────────────────────────────────
+
+  async function pull(item: PantryItem) {
+    let isNowOut = false;
+    refocusCardId = item.id;
+    const ok = await mutate(
+      async () => { isNowOut = await toggleOut(item.id); },
+      `Couldn’t update ${item.name}.`,
+    );
+    if (!ok) return;
+    // Running out is not good news; only restocking is.
+    showToast(
+      isNowOut ? `${item.name} pulled — on the grocery list` : `${item.name} back on the rack`,
+      isNowOut ? 'info' : 'success',
+    );
+    await loadData();
+  }
+
+  async function remove(item: PantryItem) {
+    const saved = { ...item };
+    const ok = await mutate(
+      async () => { await deletePantryItem(item.id); },
+      `Couldn’t remove ${item.name}.`,
+    );
+    if (!ok) return;
+    if (openCardId === item.id) openCardId = null;
+    showToast('Card removed', 'info', async () => {
+      await mutate(
+        async () => { await restorePantryItem(saved); },
+        `Couldn’t bring ${saved.name} back.`,
+      );
       await loadData();
     });
-    actions.appendChild(outBtn);
-
-    // Info button
-    const infoBtn = el('button', { className: 'btn btn-sm btn-secondary' }, 'i');
-    infoBtn.style.fontStyle = 'italic';
-    infoBtn.style.fontWeight = '700';
-    infoBtn.style.minWidth = '32px';
-    on(infoBtn, 'click', () => {
-      openModal(item.name, (body) => {
-        const info = el('div', { className: 'info-sheet' });
-
-        info.appendChild(infoRow('Category', CATEGORY_LABELS[item.category]));
-        info.appendChild(infoRow('Quantity', `${item.quantity} ${item.unit}`));
-        info.appendChild(infoRow('Added', formatDate(item.dateAdded)));
-        if (item.purchaseDate) {
-          info.appendChild(infoRow('Last purchased', formatDate(item.purchaseDate)));
-        }
-        info.appendChild(infoRow('Status', item.isOut ? 'Out of stock' : 'In stock'));
-
-        body.appendChild(info);
-
-        // Edit / Delete buttons
-        const btnRow = el('div', { className: 'input-row' });
-        btnRow.style.marginTop = '16px';
-
-        const editBtn2 = el('button', { className: 'btn btn-secondary' }, 'Edit');
-        editBtn2.style.flex = '1';
-        on(editBtn2, 'click', () => {
-          // Close info modal, open edit modal
-          body.closest('.modal-overlay')?.remove();
-          openModal('Edit Item', (editBody, close) => {
-            createItemForm(editBody, {
-              initial: { name: item.name, quantity: item.quantity, unit: item.unit, category: item.category },
-              submitLabel: 'Save',
-              onSubmit: async (data: ItemFormData) => {
-                await updatePantryItem({ ...item, ...data });
-                close();
-                showToast('Item updated', 'success');
-                await loadData();
-              },
-            });
-          });
-        });
-        btnRow.appendChild(editBtn2);
-
-        const delBtn2 = el('button', { className: 'btn btn-danger' }, 'Delete');
-        delBtn2.style.flex = '1';
-        on(delBtn2, 'click', async () => {
-          const savedItem = { ...item };
-          await deletePantryItem(item.id);
-          body.closest('.modal-overlay')?.remove();
-          showToast('Item removed', 'info', async () => {
-            await restorePantryItem(savedItem);
-            await loadData();
-          });
-          await loadData();
-        });
-        btnRow.appendChild(delBtn2);
-
-        body.appendChild(btnRow);
-      });
-    });
-    actions.appendChild(infoBtn);
-
-    row.appendChild(actions);
-    return row;
+    await loadData();
   }
 
-  function infoRow(label: string, value: string): HTMLElement {
-    const row = el('div', { className: 'info-row' });
-    row.appendChild(el('span', { className: 'info-label' }, label));
-    row.appendChild(el('span', { className: 'info-value' }, value));
-    return row;
-  }
+  // ── Load ───────────────────────────────────────────────────────
 
   async function loadData() {
-    allItems = await getAllPantryItems();
-    updateSummary();
-    renderList();
+    try {
+      const [items, typical] = await Promise.all([
+        getAllPantryItems(),
+        getAllTypicalOrderItems(),
+      ]);
+      const byName = new Map<string, TypicalOrderItem>();
+      for (const t of typical) byName.set(t.normalizedName, t);
+
+      cards = items.map((item): Card => {
+        const staple = byName.get(item.normalizedName) ?? null;
+        // Never derived from quantity: depletion is binary.
+        const status: CardStatus = item.isOut ? 'out' : staple ? 'stocked' : 'plain';
+        return { item, typical: staple, status };
+      });
+      loadFailed = false;
+    } catch {
+      loadFailed = true;
+      cards = [];
+    }
+    updatePulled();
+    renderRacks();
   }
 
-  on(searchInput, 'input', () => renderList());
-  loadData();
+  on(pulledBtn, 'click', () => {
+    pulledOnly = !pulledOnly;
+    pulledBtn.setAttribute('aria-pressed', String(pulledOnly));
+    renderRacks();
+  });
+
+  let searchTimer: number | undefined;
+  on(searchInput, 'input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => renderRacks(), 150);
+  });
+
+  renderSkeleton();
+  void loadData();
 
   return container;
 }

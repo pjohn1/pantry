@@ -21,6 +21,9 @@ export function initRouter(contentEl: HTMLElement): void {
     if (handler) {
       const view = await handler();
       contentEl.innerHTML = '';
+      // Lets a view opt out of the shell's padding so it can run edge to
+      // edge, without every other view having to know about it.
+      contentEl.dataset.route = route;
       view.classList.add('view-enter');
       contentEl.appendChild(view);
     }

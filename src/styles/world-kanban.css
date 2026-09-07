@@ -1,0 +1,587 @@
+/* ═══════════════════════════════════════════════════════════════
+   THE KANBAN CARD — visual world for the Pantry tab
+
+   A kanban is a card that exists to say one thing: this bin dropped
+   below its par, refill it. Every rule here serves that: the card is
+   an object with labelled field boxes, its state is a stamp rather
+   than a fill, and the ritual is pulling a card off the rack.
+
+   Deliberately scoped to `.pantry-view`. The other four tabs still
+   run the incumbent system until this world is propagated to them.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tokens live at the root so both the shell and the view can read them;
+   the `--kb-` prefix keeps them out of the incumbent system's way. */
+:root {
+  /* Card stock and board. The card is brighter than the board so it
+     reads as an object sitting on something, not a painted region. */
+  --kb-board: #d9d2c2;
+  --kb-card: #f5efe0;
+  --kb-card-edge: #c8bfa8;
+  --kb-ink: #1a1a17;
+  --kb-ink-soft: #5f5a4e;
+
+  /* Signal inks. In a kanban system colour is a signal, never
+     decoration: green holds, amber reorders, red is a stockout. */
+  --kb-stocked: #245c33;
+  --kb-reorder: #7a4e00;
+  --kb-out: #a62a1f;
+
+  --kb-toolbar-h: 52px;
+  --kb-rule: 1px solid var(--kb-card-edge);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Not a tinted copy of the light palette: the stock itself changes.
+       A graphite card on a dark board, rules debossed rather than
+       printed. */
+    --kb-board: #0e0e10;
+    --kb-card: #1e1d1a;
+    --kb-card-edge: #35332c;
+    --kb-ink: #f2eee2;
+    --kb-ink-soft: #a8a294;
+    --kb-stocked: #57c97e;
+    --kb-reorder: #e8a33d;
+    --kb-out: #ff6b57;
+  }
+}
+
+/* The rack runs edge to edge: the grid is the composition, not a panel
+   floating inside one. Handing the shell's padding back to the view is
+   what makes position:sticky measure from the real top of the screen. */
+.app-content[data-route='pantry'] {
+  padding: 0;
+  background: var(--kb-board);
+}
+
+.pantry-view {
+  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 92px);
+  min-height: 100%;
+  background: var(--kb-board);
+  color: var(--kb-ink);
+}
+
+/* ── Toolbar: one row, where four used to be ──────────────────── */
+
+.kb-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: calc(var(--safe-area-top) + var(--kb-toolbar-h));
+  padding: var(--safe-area-top) 12px 0;
+  background: var(--kb-board);
+  border-bottom: var(--kb-rule);
+}
+
+.kb-search {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  padding: 0 12px;
+  border: var(--kb-rule);
+  border-radius: 2px;
+  background: var(--kb-card);
+  color: var(--kb-ink);
+  font-size: 16px; /* below 16px iOS force-zooms a focused field */
+  font-weight: 500;
+}
+
+.kb-search::placeholder {
+  color: var(--kb-ink-soft);
+}
+
+/* The pulled count was a dead label duplicating the tab badge. Now it
+   is the filter for the only question worth asking at a glance. */
+.kb-pulled {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1.5px solid var(--kb-out);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--kb-out);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kb-pulled[aria-pressed='true'] {
+  background: var(--kb-out);
+  color: var(--kb-card);
+}
+
+.kb-pulled-n {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.kb-pulled[hidden] {
+  display: none;
+}
+
+/* ── The rack: bin tags and cards ─────────────────────────────── */
+
+.kb-rack {
+  margin-bottom: 18px;
+}
+
+/* A hanging bin label on a shelf rack. Sticky, so the category you
+   are inside is never a fact you have to hold in your head. */
+.kb-bin-tag {
+  position: sticky;
+  top: calc(var(--safe-area-top) + var(--kb-toolbar-h));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 12px;
+  background: var(--kb-card-edge);
+  color: var(--kb-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.kb-bin-count {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--kb-ink-soft);
+}
+
+/* The card itself. One row tall: a card, never a tile. */
+.kb-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 12px 10px 8px;
+  border-bottom: var(--kb-rule);
+  background: var(--kb-card);
+  text-align: left;
+  transition: background 0.12s ease-out;
+}
+
+.kb-card:active {
+  background: color-mix(in srgb, var(--kb-card) 92%, var(--kb-ink));
+}
+
+/* A real kanban card is punched so it can hang on the rack. */
+.kb-punch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin: 0 3px;
+  border: 1.5px solid var(--kb-card-edge);
+  border-radius: 50%;
+}
+
+/* The row carries two actions, so the expand target is its own button
+   rather than the whole card. */
+.kb-card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  text-align: left;
+  color: inherit;
+}
+
+.kb-card-name {
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+  /* Barcode lookups return long names; two lines, then clamp. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Field boxes on fixed tracks: the label and the number occupy the same
+   x on every card, so scanning the rack needs no re-aiming. */
+.kb-fields {
+  display: grid;
+  grid-template-columns: 56px 22px auto;
+  align-items: baseline;
+  gap: 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--kb-ink-soft);
+}
+
+.kb-field-label {
+  grid-column: 1;
+}
+
+.kb-field-unit {
+  grid-column: 3;
+}
+
+.kb-num {
+  grid-column: 2;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  color: var(--kb-ink);
+}
+
+
+/* ── The stamp ────────────────────────────────────────────────────
+   State is stamped ink on card stock, not a filled button. Two wins
+   over a fill: the colour is dark enough to read at text contrast,
+   and the word survives greyscale and colour-blindness on its own. */
+
+.kb-stamp-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  min-height: 44px;
+  background: none;
+  border: none;
+}
+
+.kb-stamp {
+  padding: 3px 7px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  transform: rotate(-2deg);
+}
+
+.kb-stamp--stocked {
+  color: var(--kb-stocked);
+}
+
+.kb-stamp--plain {
+  color: var(--kb-ink-soft);
+  border-style: dashed;
+  transform: rotate(-1deg);
+}
+
+.kb-stamp--out {
+  color: var(--kb-out);
+  /* A stockout is the one state that earns weight. */
+  border-width: 2px;
+}
+
+/* A pulled card is physically off the rack: inset, edge marked. */
+.kb-card.is-pulled {
+  background: color-mix(in srgb, var(--kb-card) 88%, var(--kb-out));
+  box-shadow: inset 3px 0 0 0 var(--kb-out);
+}
+
+/* ── Expand in place, rather than two modals deep ─────────────── */
+
+.kb-detail {
+  padding: 0 12px 12px 32px;
+  background: var(--kb-card);
+  border-bottom: var(--kb-rule);
+}
+
+.kb-detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-top: var(--kb-rule);
+  font-size: 13px;
+}
+
+.kb-detail-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--kb-ink-soft);
+  align-self: center;
+}
+
+.kb-detail-val {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kb-inline-btn {
+  margin-left: 10px;
+  padding: 4px 9px;
+  min-height: 32px;
+  border: 1.5px solid var(--kb-card-edge);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--kb-ink);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kb-baseline-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+}
+
+.kb-baseline-input {
+  width: 62px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1.5px solid var(--kb-ink);
+  border-radius: 2px;
+  background: var(--kb-card);
+  color: var(--kb-ink);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.kb-btn--primary {
+  width: 100%;
+  margin-top: 12px;
+  border-color: var(--kb-ink);
+  background: var(--kb-ink);
+  color: var(--kb-card);
+}
+
+.kb-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kb-btn {
+  flex: 1;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--kb-card-edge);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--kb-ink);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.kb-btn--danger {
+  border-color: var(--kb-out);
+  color: var(--kb-out);
+}
+
+/* ── Swipe actions: the row's real estate goes back to the ledger ─ */
+
+.kb-swipe {
+  position: relative;
+  overflow: hidden;
+  background: var(--kb-board);
+}
+
+.kb-swipe-actions {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  align-items: stretch;
+}
+
+.kb-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  padding: 0 6px;
+  border: none;
+  color: var(--kb-card);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kb-action--pull {
+  background: var(--kb-reorder);
+}
+
+.kb-action--restock {
+  background: var(--kb-stocked);
+}
+
+.kb-action--delete {
+  background: var(--kb-out);
+}
+
+.kb-swipe-surface {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.kb-swipe.is-dragging .kb-swipe-surface {
+  transition: none;
+}
+
+/* Focus must never land on something the user cannot see. Scoped to the
+   actions layer: `.kb-swipe:focus-within` also matched the card's own
+   buttons, so merely focusing a card slid its name off screen. */
+.kb-swipe-actions:focus-within + .kb-swipe-surface {
+  transform: translate3d(-172px, 0, 0);
+}
+
+/* ── The dock: the camera path lives in the thumb zone ────────────
+   The product's first principle is "never make the user type what a
+   camera can read". The camera therefore gets the reachable half of
+   the screen, and typing gets the smaller affordance. */
+
+.kb-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom));
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  /* Opaque on purpose: a translucent rail let card text ghost through
+     behind the buttons, which reads as a defect rather than as depth. */
+  background: var(--kb-board);
+  box-shadow: 0 -6px 16px -8px rgb(0 0 0 / 0.35);
+  border-top: var(--kb-rule);
+}
+
+.kb-dock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.kb-dock-scan {
+  flex: 1;
+  border: 2px solid var(--kb-ink);
+  background: var(--kb-ink);
+  color: var(--kb-card);
+}
+
+.kb-dock-new {
+  flex: none;
+  width: 60px;
+  border: 2px solid var(--kb-ink);
+  background: transparent;
+  color: var(--kb-ink);
+}
+
+.kb-dock-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Empty, failed, loading ───────────────────────────────────── */
+
+.kb-notice {
+  margin: 24px 12px;
+  padding: 18px;
+  border: 1.5px dashed var(--kb-card-edge);
+  border-radius: 2px;
+  background: var(--kb-card);
+  text-align: center;
+}
+
+.kb-notice-text {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--kb-ink-soft);
+}
+
+.kb-notice .kb-btn {
+  margin-top: 14px;
+  flex: none;
+}
+
+.kb-skeleton {
+  min-height: 64px;
+  padding: 10px 12px 10px 20px;
+  border-bottom: var(--kb-rule);
+  background: var(--kb-card);
+}
+
+.kb-skeleton-line {
+  width: 55%;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--kb-card-edge);
+  animation: kbPulse 1.4s ease-in-out infinite;
+}
+
+.kb-skeleton:nth-child(2) .kb-skeleton-line { width: 40%; }
+.kb-skeleton:nth-child(3) .kb-skeleton-line { width: 66%; }
+.kb-skeleton:nth-child(4) .kb-skeleton-line { width: 34%; }
+.kb-skeleton:nth-child(5) .kb-skeleton-line { width: 50%; }
+
+@keyframes kbPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.pantry-view :focus-visible {
+  outline: 2px solid var(--kb-ink);
+  outline-offset: -3px;
+}
+
+/* ── Wider screens ────────────────────────────────────────────────
+   The phone is the design target, but an installed PWA lands on iPads
+   too, and one card row stretched to 1200px stops reading as a card. */
+
+@media (min-width: 640px) {
+  .kb-toolbar,
+  .kb-racks {
+    max-width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .kb-dock {
+    justify-content: center;
+  }
+
+  .kb-dock-scan {
+    max-width: 460px;
+  }
+}
