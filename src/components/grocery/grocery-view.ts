@@ -10,18 +10,19 @@ import {
   undoPurchase,
   type PurchaseSnapshot,
 } from '../../services/grocery.service';
-import { CATEGORIES, CATEGORY_LABELS, type GroceryListItem } from '../../models/types';
+import { CATEGORIES, CATEGORY_LABELS, type GroceryListItem, type ItemCategory } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { extractReceiptLinesFromImage, cancelReceiptScan } from '../../services/ocr.service';
 import {
-  parseReceiptLines,
+  readReceipt,
   matchReceiptAgainstGroceryList,
   applyReceiptMatches,
-  addReceiptLineToPantry,
+  addReceiptItemToPantry,
   type ReceiptMatch,
   type ReceiptReview,
+  type ReceiptItem,
 } from '../../services/receipt.service';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
 import { setDock } from '../shared/dock';
@@ -215,13 +216,13 @@ export function createGroceryView(): HTMLElement {
       });
       if (cancelled) return;
 
-      const names = parseReceiptLines(lines);
-      const review = await matchReceiptAgainstGroceryList(names);
+      const products = readReceipt(lines);
+      const review = await matchReceiptAgainstGroceryList(products);
       if (cancelled) return;
 
       finish();
 
-      if (review.matched.length === 0 && review.unmatched.length === 0) {
+      if (review.matched.length === 0 && review.extras.length === 0) {
         showToast('Couldn’t find any items on that receipt', 'info');
         return;
       }
@@ -256,15 +257,24 @@ export function createGroceryView(): HTMLElement {
   }
 
   /**
-   * The receipt's verdict, as a decision rather than a report. Every matched
-   * row shows the line that matched it, so a fuzzy guess is visible and one
-   * tap away from being corrected — and nothing is written until the button
-   * at the bottom is pressed.
+   * The receipt's verdict, as a decision rather than a report.
+   *
+   * Everything the receipt says was bought is offered, and offered ticked —
+   * putting it in the pantry is the whole point of having photographed it. The
+   * exception is the group OCR was unsure of, which is shown but left for the
+   * user to opt into: a name nobody can read is not evidence of a purchase.
+   *
+   * Every row shows the line it came from and can be renamed in place, because
+   * a guess the user can see and correct is worth far more than a guess that
+   * silently becomes the name of something in their kitchen. Nothing is written
+   * until the button at the bottom is pressed.
    */
   function openReceiptReview(review: ReceiptReview) {
     openModal('What you bought', (body, close) => {
       const takeMatched = new Set(review.matched.map(m => m.item.id));
-      const takeExtra = new Set<string>();
+      const sure = review.extras.filter(e => e.confident);
+      const unsure = review.extras.filter(e => !e.confident);
+      const takeExtra = new Set<ReceiptItem>(sure);
 
       const submit = el('button', { className: 'btn btn-primary btn-block' });
       function syncSubmit() {
@@ -275,32 +285,63 @@ export function createGroceryView(): HTMLElement {
         submit.disabled = n === 0;
       }
 
-      if (review.matched.length > 0) {
-        body.appendChild(el('h3', { className: 'kb-review-head' }, 'On your list'));
+      function group(heading: string, note: string | null, build: (list: HTMLElement) => void) {
+        body.appendChild(el('h3', { className: 'kb-review-head' }, heading));
+        if (note) body.appendChild(el('p', { className: 'kb-review-note' }, note));
         const list = el('div', { className: 'kb-review-list', role: 'list' });
-        for (const match of review.matched) {
-          list.appendChild(reviewRow(
-            match.item.name,
-            `matched “${match.line}”`,
-            true,
-            (on_) => { on_ ? takeMatched.add(match.item.id) : takeMatched.delete(match.item.id); syncSubmit(); },
-          ));
-        }
+        build(list);
         body.appendChild(list);
       }
 
-      if (review.unmatched.length > 0) {
-        body.appendChild(el('h3', { className: 'kb-review-head' }, 'Also on this receipt'));
-        const list = el('div', { className: 'kb-review-list', role: 'list' });
-        for (const line of review.unmatched.slice(0, 30)) {
-          list.appendChild(reviewRow(
-            line,
-            'not on your list',
-            false,
-            (on_) => { on_ ? takeExtra.add(line) : takeExtra.delete(line); syncSubmit(); },
-          ));
-        }
-        body.appendChild(list);
+      if (review.matched.length > 0) {
+        group('On your list', null, list => {
+          for (const match of review.matched) {
+            list.appendChild(reviewRow({
+              name: match.item.name,
+              detail: `matched “${match.line}”`,
+              category: match.item.category,
+              checked: true,
+              onChange: (checked) => {
+                if (checked) takeMatched.add(match.item.id);
+                else takeMatched.delete(match.item.id);
+                syncSubmit();
+              },
+            }));
+          }
+        });
+      }
+
+      function extraRow(item: ReceiptItem, checked: boolean): HTMLElement {
+        return reviewRow({
+          name: item.name,
+          detail: item.line,
+          category: item.category,
+          checked,
+          onChange: (on_) => {
+            if (on_) takeExtra.add(item);
+            else takeExtra.delete(item);
+            syncSubmit();
+          },
+          // The edited name is the one that gets written, and it is what the
+          // pantry will be joined on, so a correction here is a real fix.
+          onRename: (name) => { item.name = name; },
+        });
+      }
+
+      if (sure.length > 0) {
+        group('Also on this receipt', null, list => {
+          for (const item of sure) list.appendChild(extraRow(item, true));
+        });
+      }
+
+      if (unsure.length > 0) {
+        group(
+          'Not sure about these',
+          'The photo was hard to read here. Tap a name to fix it.',
+          list => {
+            for (const item of unsure) list.appendChild(extraRow(item, false));
+          },
+        );
       }
 
       syncSubmit();
@@ -310,7 +351,7 @@ export function createGroceryView(): HTMLElement {
         const ok = await mutate(
           async () => {
             await applyReceiptMatches(matches);
-            for (const line of extras) await addReceiptLineToPantry(line);
+            for (const item of extras) await addReceiptItemToPantry(item);
           },
           'Couldn’t update your pantry from that receipt.',
         );
@@ -324,33 +365,96 @@ export function createGroceryView(): HTMLElement {
     });
   }
 
-  function reviewRow(
-    name: string,
-    detail: string,
-    checked: boolean,
-    onChange: (checked: boolean) => void,
-  ): HTMLElement {
+  interface ReviewRowOptions {
+    name: string;
+    detail: string;
+    category: ItemCategory;
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+    /** Supplied only where the name is a guess this app made. */
+    onRename?: (name: string) => void;
+  }
+
+  function reviewRow(options: ReviewRowOptions): HTMLElement {
     const row = el('div', { className: 'kb-review-row', role: 'listitem' });
-    let on_ = checked;
+    let on_ = options.checked;
 
     const check = el('button', {
       className: 'kb-check',
       role: 'checkbox',
       'aria-checked': String(on_),
-      'aria-label': name,
+      'aria-label': options.name,
     });
     check.appendChild(el('span', { className: 'kb-check-box' }));
     on(check, 'click', () => {
       on_ = !on_;
       check.setAttribute('aria-checked', String(on_));
-      onChange(on_);
+      options.onChange(on_);
     });
     row.appendChild(check);
 
     const main = el('div', { className: 'kb-review-main' });
-    main.appendChild(el('span', { className: 'kb-review-name' }, name));
-    main.appendChild(el('span', { className: 'kb-review-line' }, detail));
+    const nameSlot = el('div', { className: 'kb-review-slot' });
+    let name = options.name;
+
+    function paintName() {
+      nameSlot.innerHTML = '';
+      if (!options.onRename) {
+        nameSlot.appendChild(el('span', { className: 'kb-review-name' }, name));
+        return;
+      }
+      const trigger = el('button', {
+        className: 'kb-review-name kb-review-rename',
+        type: 'button',
+        'aria-label': `Rename ${name}`,
+      }, name);
+      on(trigger, 'click', edit);
+      nameSlot.appendChild(trigger);
+    }
+
+    function edit() {
+      nameSlot.innerHTML = '';
+      const field = el('input', {
+        className: 'kb-review-field',
+        type: 'text',
+        'aria-label': 'Item name',
+      }) as HTMLInputElement;
+      field.value = name;
+
+      // Taking the field out of the DOM blurs it, so without this guard
+      // Escape would put the name back and then blur would commit the edit it
+      // just discarded. Whichever route settles first wins.
+      let settled = false;
+      function settle(save: boolean) {
+        if (settled) return;
+        settled = true;
+        const next = field.value.trim();
+        // An emptied field is a slip, not an instruction to name it nothing.
+        if (save && next) {
+          name = next;
+          check.setAttribute('aria-label', name);
+          options.onRename?.(name);
+        }
+        paintName();
+      }
+
+      on(field, 'blur', () => settle(true));
+      on(field, 'keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); settle(true); }
+        if (e.key === 'Escape') { e.preventDefault(); settle(false); }
+      });
+      nameSlot.appendChild(field);
+      field.focus();
+      field.select();
+    }
+
+    paintName();
+    main.appendChild(nameSlot);
+
+    main.appendChild(el('span', { className: 'kb-review-line' }, options.detail));
     row.appendChild(main);
+
+    row.appendChild(el('span', { className: 'kb-review-cat' }, CATEGORY_LABELS[options.category]));
 
     return row;
   }

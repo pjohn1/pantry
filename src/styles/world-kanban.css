@@ -620,6 +620,7 @@
 
 .kb-review-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
@@ -649,6 +650,81 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--kb-ink-soft);
+}
+
+/* Why a group is asking rather than telling. Sits under its heading, above
+   the card, so the reason arrives before the rows it explains. */
+.kb-review-note {
+  padding: 0 2px 6px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--kb-ink-soft);
+}
+
+/* The name occupies its own line so swapping it for a field cannot reflow the
+   row. Both states are 20px tall, which is what keeps the 52px row still. */
+.kb-review-slot {
+  display: flex;
+  min-width: 0;
+  min-height: 20px;
+}
+
+/* A name this app guessed. It is a button because it is editable, but it must
+   read as the row's title and not as a control — the affordance is a dotted
+   underline, which says "this is changeable" without competing with the
+   checkbox for attention. */
+.kb-review-rename {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--kb-ink);
+  text-align: left;
+  text-decoration: underline dotted var(--kb-control-edge);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-review-rename:focus-visible {
+  outline: 2px solid var(--kb-ink);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Correcting a name in place. 16px is the floor that stops iOS zooming a
+   focused field, and the box is deliberately flat: it replaces a line of text
+   in a list, so it should not arrive looking like a form. */
+.kb-review-field {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-bottom: 1.5px solid var(--kb-ink);
+  border-radius: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--kb-ink);
+  outline: none;
+}
+
+/* Where the item is going. The pantry groups by category, so saying it here is
+   what makes a receipt's worth of new rows predictable rather than a surprise
+   after the fact. Right-aligned and quiet: it is a label, not a decision. */
+.kb-review-cat {
+  flex: none;
+  padding: 0 12px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+  white-space: nowrap;
 }
 
 .kb-progress {

@@ -3,43 +3,18 @@ import type { GroceryListItem } from '../models/types';
 import { normalizeIngredientName } from '../utils/normalize';
 import { addPantryItemFromPurchase } from './pantry.service';
 import { emit } from '../utils/events';
+import { parseReceipt, type OcrLine, type ReceiptItem } from '../utils/receipt-text';
 
-// Strip trailing price, quantity codes, and barcode numbers from a receipt line
-function stripReceiptNoise(line: string): string {
-  let text = line;
-  // Remove trailing price like "1.29", "$1.29", "1,234.56 T", "1.29 F"
-  text = text.replace(/\s+\$?\d{1,3}(?:[,]\d{3})*[.]\d{2}\s*[A-Z]?\s*$/, '');
-  // Remove leading quantity like "2 x ", "3X "
-  text = text.replace(/^\d+\s*[xX]\s+/, '');
-  // Remove barcode / SKU sequences (5+ digits)
-  text = text.replace(/\b\d{5,}\b/g, '');
-  return text.trim();
-}
+export type { ReceiptItem } from '../utils/receipt-text';
 
-const RECEIPT_SKIP_PATTERNS = [
-  /total/i, /subtotal/i, /sub-total/i, /\btax\b/i, /\btax\s/i,
-  /change/i, /\bcash\b/i, /credit/i, /debit/i, /\bvisa\b/i,
-  /mastercard/i, /amex/i, /discover/i, /balance/i, /savings/i,
-  /thank you/i, /receipt/i, /\bstore\b/i, /\bphone\b/i,
-  /manager/i, /cashier/i, /\bdate\b/i, /\btime\b/i,
-  /welcome/i, /loyalty/i, /reward/i, /coupon/i, /discount/i,
-  /^\s*\d+\s*$/, // pure numbers
-  /^\s*[*#\-=]+\s*$/, // separator lines
-];
-
-export function parseReceiptLines(rawLines: string[]): string[] {
-  const results: string[] = [];
-
-  for (const line of rawLines) {
-    if (RECEIPT_SKIP_PATTERNS.some(p => p.test(line))) continue;
-
-    const cleaned = stripReceiptNoise(line);
-    if (cleaned.length >= 2) {
-      results.push(cleaned);
-    }
-  }
-
-  return results;
+/**
+ * Reading a receipt is all in `utils/receipt-text.ts`, which is pure and can
+ * therefore be tested. This file is the part that needs the database: deciding
+ * which of the products read off the receipt are already on the shopping list,
+ * and writing the user's decision once they have made it.
+ */
+export function readReceipt(lines: OcrLine[]): ReceiptItem[] {
+  return parseReceipt(lines);
 }
 
 /**
@@ -50,6 +25,13 @@ export function parseReceiptLines(rawLines: string[]): string[] {
  * moved a row the user did not buy into the pantry and deleted it off the
  * list, silently — the worst failure shape for a product whose success
  * condition is that the ledger is true.
+ *
+ * It is deliberately still this strict. What changed is upstream: a receipt
+ * name is now canonicalised against the product vocabulary *before* it gets
+ * here, so `WHT SDWCH BRD` arrives as `bread` and matches a list row `bread`
+ * exactly. Relaxing this function instead — letting a one-word name match the
+ * last word of a longer one — would have re-broken `oat milk`, which the
+ * vocabulary keeps as a product in its own right.
  */
 function words(normalized: string): string[] {
   return normalized.split(' ').filter(Boolean);
@@ -88,8 +70,8 @@ export interface ReceiptMatch {
 
 export interface ReceiptReview {
   matched: ReceiptMatch[];
-  /** Lines that look like products but are on no list row. */
-  unmatched: string[];
+  /** Everything else the receipt says was bought. */
+  extras: ReceiptItem[];
 }
 
 /**
@@ -98,45 +80,36 @@ export interface ReceiptReview {
  * and applying are now two steps with the user's decision in between.
  */
 export async function matchReceiptAgainstGroceryList(
-  receiptItemNames: string[],
+  items: ReceiptItem[],
 ): Promise<ReceiptReview> {
   const db = await getDB();
   const groceryItems = await db.getAll('groceryList');
 
-  const normalized = receiptItemNames.map(name => ({
-    line: name,
-    norm: normalizeIngredientName(name),
+  const normalized = items.map(item => ({
+    item,
+    norm: normalizeIngredientName(item.name),
   }));
 
   const matched: ReceiptMatch[] = [];
-  const claimed = new Set<string>();
+  const claimed = new Set<ReceiptItem>();
 
   for (const grocery of groceryItems) {
-    const hit = normalized.find(r => namesMatch(r.norm, grocery.normalizedName));
+    // Skipping what is already claimed is load-bearing: without it two list
+    // rows could both match the same receipt line, and a single purchase would
+    // clear two rows off the list and stamp two pantry rows as bought.
+    const hit = normalized.find(
+      r => !claimed.has(r.item) && namesMatch(r.norm, grocery.normalizedName),
+    );
     if (!hit) continue;
-    matched.push({ item: grocery, line: hit.line });
-    claimed.add(hit.line);
+    matched.push({ item: grocery, line: hit.item.line });
+    claimed.add(hit.item);
   }
 
-  // Everything else you bought. PRODUCT.md promises "receipt photo → pantry
-  // population", and these lines used to be parsed and then thrown away.
-  const unmatched = normalized
-    .filter(r => !claimed.has(r.line) && r.norm.length >= 3)
-    .map(r => r.line);
+  const extras = normalized
+    .filter(r => !claimed.has(r.item) && r.norm.length >= 2)
+    .map(r => r.item);
 
-  return { matched, unmatched: dedupe(unmatched) };
-}
-
-function dedupe(lines: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const line of lines) {
-    const key = line.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(line);
-  }
-  return out;
+  return { matched, extras };
 }
 
 /** Moves the rows the user confirmed, and only those. */
@@ -160,9 +133,20 @@ export async function applyReceiptMatches(matches: ReceiptMatch[]): Promise<void
   emit('grocery-count', remaining.length);
 }
 
-/** For a receipt line that was never on the list but is now in the cupboard. */
-export async function addReceiptLineToPantry(line: string): Promise<void> {
+/**
+ * For a product that was never on the list but is now in the cupboard.
+ *
+ * It arrives with a real name, a real category and whatever quantity the
+ * receipt stated. The old version of this took a raw OCR line and stored it
+ * verbatim as the display name under `other`, which is how `GV WHL MILK GAL`
+ * ended up being the name of something in the pantry.
+ */
+export async function addReceiptItemToPantry(item: ReceiptItem): Promise<void> {
   await addPantryItemFromPurchase(
-    line, normalizeIngredientName(line), 1, 'count', 'other',
+    item.name,
+    normalizeIngredientName(item.name),
+    item.quantity,
+    item.unit,
+    item.category,
   );
 }
