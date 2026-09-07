@@ -480,16 +480,11 @@ export function createInspoView(): HTMLElement {
       // ── Make a recipe with Claude ──────────────────────────────
       // The one path by which pantry contents leave this device, and they leave
       // as a link the user taps: the app makes no request, holds no key and has
-      // no server behind it. The note says so, because "nothing leaves the
-      // device unless you export it" is a promise made elsewhere in this app
-      // and an exception to it should be read before it is taken, not after.
-      const claudeBlock = el('div', { className: 'inspo-claude' });
+      // no server behind it. Nothing is transmitted until send is pressed in
+      // Claude, which is where the prompt is read before it goes.
       const claudeBtn = el('button', { className: 'btn btn-primary btn-block' },
         'Make a recipe with Claude');
-      claudeBlock.appendChild(claudeBtn);
-      claudeBlock.appendChild(el('p', { className: 'inspo-claude-note' },
-        'Opens Claude with a list of what’s in your pantry and asks for three recipes. Nothing is sent until you tap send there.'));
-      body.appendChild(claudeBlock);
+      body.appendChild(claudeBtn);
       body.appendChild(el('div', { className: 'inspo-sheet-rule' }));
 
       // Read the pantry as the sheet opens rather than when the button is

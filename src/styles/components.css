@@ -512,22 +512,8 @@
 /* ── Making a recipe with Claude ──────────────────────────────────
    The hand-off sits at the top of the add sheet, above the title field and
    ruled off from it, because it is the one thing in there that leaves the app.
-   The note under the button is not decoration: this app promises elsewhere
-   that nothing leaves the device unless you export it, and the sentence that
-   qualifies that promise has to be readable before the button is pressed —
-   hence soft ink on the 13px floor rather than a smaller aside. */
-.inspo-claude {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.inspo-claude-note {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--kb-ink-soft);
-  padding-inline: 2px;
-}
+   The button carries no explanatory line: `.btn-block` already spans the sheet
+   and the rule below does the separating, so there is nothing left to style. */
 
 /* The one hairline in the sheet. `.modal-body` supplies the 16px either side
    of it through its own gap, so this rule carries no margin of its own. */
