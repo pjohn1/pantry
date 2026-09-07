@@ -27,7 +27,11 @@ export interface ItemFormData {
 export interface ItemFormOptions {
   initial?: Partial<ItemFormData>;
   submitLabel: string;
-  onSubmit: (data: ItemFormData) => void;
+  /**
+   * May be async. The form disables itself for the duration, so a repeated tap
+   * on a slow write cannot add the same item twice.
+   */
+  onSubmit: (data: ItemFormData) => void | Promise<void>;
 }
 
 export function createItemForm(container: HTMLElement, options: ItemFormOptions): void {
@@ -80,24 +84,60 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
   catGroup.appendChild(catSelect);
   container.appendChild(catGroup);
 
+  // Inline validation message, next to the field it is about.
+  const nameError = el('div', { className: 'field-error' });
+  nameError.hidden = true;
+  nameGroup.appendChild(nameError);
+
   // Submit
   const submitBtn = el('button', { className: 'btn btn-primary btn-block' }, submitLabel);
-  submitBtn.addEventListener('click', () => {
+  let submitting = false;
+
+  async function submit() {
+    if (submitting) return;
+
     const name = nameInput.value.trim();
     if (!name) {
+      nameError.textContent = 'Give the item a name so you can find it later.';
+      nameError.hidden = false;
       nameInput.focus();
       return;
     }
+    nameError.hidden = true;
+
     const category = catSelect.value as ItemCategory;
     const unit = unitSelect.value;
     saveLastChoices(category, unit);
-    onSubmit({
-      name,
-      quantity: parseFloat(qtyInput.value) || 1,
-      unit,
-      category,
+
+    submitting = true;
+    submitBtn.disabled = true;
+    try {
+      await onSubmit({
+        name,
+        quantity: parseFloat(qtyInput.value) || 1,
+        unit,
+        category,
+      });
+    } finally {
+      // If the caller kept the sheet open — because the write failed — the
+      // form has to be usable again for the retry.
+      submitting = false;
+      submitBtn.disabled = false;
+    }
+  }
+
+  submitBtn.addEventListener('click', submit);
+
+  // Return on the iOS keyboard should submit. The button sits under the
+  // keyboard, so requiring a tap means dismissing the keyboard first.
+  for (const field of [nameInput, qtyInput]) {
+    field.addEventListener('keydown', (e) => {
+      if ((e as KeyboardEvent).key === 'Enter') {
+        e.preventDefault();
+        void submit();
+      }
     });
-  });
+  }
   container.appendChild(submitBtn);
 
   // Focus name input

@@ -281,7 +281,8 @@
   padding-bottom: calc(var(--spacing-lg) + var(--safe-area-bottom));
   width: 100%;
   max-width: 500px;
-  max-height: 85dvh;
+  /* `dvh` ignores the iOS keyboard; modal.ts measures the real inset. */
+  max-height: calc(85dvh - var(--keyboard-inset, 0px));
   overflow-y: auto;
   animation: slideUp 0.2s ease-out;
 }
@@ -917,4 +918,75 @@ html, body {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text);
+}
+
+/* ── Resilience states ───────────────────────────────────────── */
+
+/* Inline field validation, next to the field it describes. */
+.field-error {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-danger);
+}
+
+/* A blank list on first paint reads as "your data is gone" in a ledger app.
+   These stand in for rows while storage opens. */
+.skeleton-row {
+  align-items: center;
+}
+
+.skeleton-line {
+  width: 60%;
+  height: 15px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-row:nth-child(2) .skeleton-line { width: 45%; }
+.skeleton-row:nth-child(3) .skeleton-line { width: 70%; }
+.skeleton-row:nth-child(4) .skeleton-line { width: 38%; }
+.skeleton-row:nth-child(5) .skeleton-line { width: 55%; }
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* A control that cannot act must not look like it can. */
+.btn:disabled,
+.qty-stepper-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.btn:disabled:active { opacity: 0.35; }
+
+/* `hidden` loses to any class that sets `display`, which every .btn does. */
+[hidden] {
+  display: none !important;
+}
+
+/* Keyboard focus was invisible on every button in the app. Scoped to real
+   controls, and no border-radius here: that would reshape the element itself
+   on focus rather than just ring it. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Respect the OS setting: motion here is feedback, never content. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

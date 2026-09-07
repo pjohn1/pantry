@@ -129,7 +129,7 @@ export function createGroceryView(): HTMLElement {
 
   const barcodeScanBtn = el('button', { className: 'btn btn-secondary btn-sm' });
   barcodeScanBtn.appendChild(svgIcon(
-    'M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z',
+    '<path d="M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z"/>',
     16,
   ));
   barcodeScanBtn.appendChild(document.createTextNode(' Scan Barcode'));

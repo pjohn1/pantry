@@ -13,8 +13,13 @@ export function createApp(): void {
   const content = el('main', { className: 'app-content' });
   const tabBar = createTabBar();
 
-  // Toast container
-  const toastContainer = el('div', { className: 'toast-container' });
+  // Toast container. A live region, so the confirmation a ledger most needs to
+  // give — "it saved" — is announced and not only drawn.
+  const toastContainer = el('div', {
+    className: 'toast-container',
+    role: 'status',
+    'aria-live': 'polite',
+  });
   toastContainer.id = 'toast-container';
 
   app.appendChild(content);

@@ -1,6 +1,7 @@
-import { el } from '../../utils/dom';
+import { el, on } from '../../utils/dom';
 import { openModal } from './modal';
 import { isBarcodeDetectorSupported, lookupBarcode } from '../../services/barcode.service';
+import type { BarcodeLookup } from '../../services/barcode.service';
 import type { ItemCategory } from '../../models/types';
 
 // BarcodeDetector Web API (not yet in TypeScript lib)
@@ -9,13 +10,42 @@ declare class BarcodeDetector {
   detect(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement | ImageBitmap): Promise<Array<{ rawValue: string }>>;
 }
 
+const FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'code_128', 'code_39'];
+
 export function openBarcodeScanner(onResult: (name: string, category: ItemCategory) => void): void {
+  let stream: MediaStream | null = null;
+  let animFrame: number | null = null;
+  let scanning = false;
+  // Set the instant we commit to handing a product back, so the teardown that
+  // follows is not mistaken for the user walking away.
+  let handingOff = false;
+  let dismissed = false;
+  const lookupAbort = new AbortController();
+
+  function stopCamera() {
+    scanning = false;
+    if (animFrame !== null) {
+      cancelAnimationFrame(animFrame);
+      animFrame = null;
+    }
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+  }
+
   openModal('Scan Barcode', (body, close) => {
     if (!isBarcodeDetectorSupported()) {
-      const msg = el('div', { className: 'barcode-unsupported' },
-        'Barcode scanning is not supported in this browser. Try Chrome or Safari 17+.'
-      );
-      body.appendChild(msg);
+      body.appendChild(el('div', { className: 'barcode-unsupported' },
+        'This browser can’t scan barcodes. Safari 17 or later, or Chrome, can — or add the item by hand.',
+      ));
+      const manual = el('button', { className: 'btn btn-primary btn-block' }, 'Add by hand');
+      on(manual, 'click', () => {
+        handingOff = true;
+        close();
+        onResult('', 'other');
+      });
+      body.appendChild(manual);
       return;
     }
 
@@ -28,37 +58,37 @@ export function openBarcodeScanner(onResult: (name: string, category: ItemCatego
     viewfinder.appendChild(video);
     viewfinder.appendChild(crosshair);
 
-    const status = el('div', { className: 'barcode-status' }, 'Point camera at a barcode...');
+    const status = el('div', { className: 'barcode-status', role: 'status', 'aria-live': 'polite' },
+      'Point the camera at a barcode');
+
+    // Every state of this sheet keeps a way out and a way forward.
+    const actions = el('div', { className: 'input-row' });
+    const manualBtn = el('button', { className: 'btn btn-secondary' }, 'Add by hand');
+    const retryBtn = el('button', { className: 'btn btn-primary' }, 'Scan again');
+    retryBtn.hidden = true;
+    on(manualBtn, 'click', () => {
+      handingOff = true;
+      close();
+      onResult('', 'other');
+    });
+    on(retryBtn, 'click', () => {
+      retryBtn.hidden = true;
+      crosshair.classList.remove('barcode-crosshair-found');
+      status.textContent = 'Point the camera at a barcode';
+      runDetectionLoop();
+    });
+    actions.appendChild(manualBtn);
+    actions.appendChild(retryBtn);
 
     body.appendChild(viewfinder);
     body.appendChild(status);
+    body.appendChild(actions);
 
-    let stream: MediaStream | null = null;
-    let animFrame: number | null = null;
-    let active = true;
-
-    function stopCamera() {
-      active = false;
-      if (animFrame !== null) {
-        cancelAnimationFrame(animFrame);
-        animFrame = null;
-      }
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-    }
-
-    // Stop camera when modal is closed
-    const overlay = body.closest('.modal-overlay') as HTMLElement | null;
-    if (overlay) {
-      const obs = new MutationObserver(() => {
-        if (!document.body.contains(overlay)) {
-          stopCamera();
-          obs.disconnect();
-        }
-      });
-      obs.observe(document.body, { childList: true });
+    function fail(message: string) {
+      if (dismissed) return;
+      status.textContent = message;
+      crosshair.classList.remove('barcode-crosshair-found');
+      retryBtn.hidden = false;
     }
 
     async function startCamera() {
@@ -66,37 +96,41 @@ export function openBarcodeScanner(onResult: (name: string, category: ItemCatego
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
         });
+        if (dismissed) {
+          // Permission dialogs are slow; the user may already be gone.
+          stopCamera();
+          return;
+        }
         video.srcObject = stream;
         await video.play();
         runDetectionLoop();
       } catch {
-        status.textContent = 'Camera access denied. Please allow camera permissions and try again.';
+        status.textContent = 'Camera access is off. Allow it in Settings, or add the item by hand.';
+        retryBtn.hidden = false;
       }
     }
 
     function runDetectionLoop() {
-      const detector = new BarcodeDetector({
-        formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code', 'code_128', 'code_39'],
-      });
+      const detector = new BarcodeDetector({ formats: FORMATS });
+      scanning = true;
 
       async function tick() {
-        if (!active) return;
+        if (!scanning || dismissed) return;
         try {
           const results = await detector.detect(video);
           if (results.length > 0) {
             const code = results[0].rawValue;
-            active = false;
+            scanning = false;
             if (animFrame !== null) cancelAnimationFrame(animFrame);
-            status.textContent = 'Looking up product...';
-            crosshair.classList.add('barcode-crosshair-found');
-            const result = await lookupBarcode(code);
-            stopCamera();
-            close();
-            onResult(result?.name ?? '', result?.category ?? 'other');
+            // Deliberately no success styling yet: the barcode is read, but
+            // whether it names a product is still unknown. Painting the
+            // crosshair green here is a promise the lookup may not keep.
+            status.textContent = 'Looking up product…';
+            await resolveCode(code);
             return;
           }
         } catch {
-          // detect() can throw on some frames; continue
+          // detect() can throw on individual frames; keep scanning.
         }
         animFrame = requestAnimationFrame(tick);
       }
@@ -104,6 +138,42 @@ export function openBarcodeScanner(onResult: (name: string, category: ItemCatego
       animFrame = requestAnimationFrame(tick);
     }
 
+    async function resolveCode(code: string) {
+      const result: BarcodeLookup = await lookupBarcode(code, lookupAbort.signal);
+
+      // The lookup can settle long after the sheet is gone. Handing a result
+      // to the caller now would open a form the user never asked for.
+      if (dismissed) return;
+
+      switch (result.kind) {
+        case 'found':
+          crosshair.classList.add('barcode-crosshair-found');
+          status.textContent = result.name;
+          handingOff = true;
+          stopCamera();
+          close();
+          onResult(result.name, result.category);
+          return;
+        case 'unknown':
+          fail('Not in the product database. Add it by hand, or scan a different item.');
+          return;
+        case 'offline':
+          fail('No connection to the product database. Add it by hand — the name is all this needs.');
+          return;
+        case 'unavailable':
+          fail(`The product database is unavailable (${result.status}). Add it by hand, or try again.`);
+          return;
+        case 'cancelled':
+          return;
+      }
+    }
+
     startCamera();
+  }, {
+    onClose: () => {
+      dismissed = !handingOff;
+      stopCamera();
+      lookupAbort.abort();
+    },
   });
 }
