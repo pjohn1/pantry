@@ -53,6 +53,50 @@ export const UNITS = [
   'cloves', 'slices', 'pieces', 'bunch', 'head', 'can', 'bag', 'box', 'jar', 'package',
 ];
 
+/**
+ * What the kitchen has to cook with, and the shape of the four things the
+ * Claude hand-off lets you set before it sends.
+ *
+ * Equipment lives here for the same reason `CATEGORIES` and `UNITS` do: the
+ * prompt interpolates the list from this file, so the words the user ticks and
+ * the words Claude is given can never drift apart.
+ */
+export const EQUIPMENT = [
+  'oven', 'stovetop', 'microwave', 'air fryer', 'slow cooker', 'pressure cooker',
+  'blender', 'food processor', 'stand mixer', 'toaster', 'grill', 'rice cooker',
+  'kettle', 'frying pan', 'saucepan', 'baking sheet', 'casserole dish', 'wok',
+];
+
+export type MeasurementSystem = 'us' | 'metric' | 'either';
+
+/** Both ends inclusive. One slider step is one person. */
+export const SERVINGS_MIN = 1;
+export const SERVINGS_MAX = 8;
+
+/**
+ * The time slider's stops, in minutes, with `null` as the far end meaning no
+ * limit. Indexed by the slider, so the control, the defaults and the validator
+ * all read the same numbers.
+ */
+export const TIME_STEPS: (number | null)[] = [15, 20, 30, 45, 60, 90, 120, null];
+
+export interface RecipeOptions {
+  servings: number;
+  /** Minutes, or null for no limit. Always one of `TIME_STEPS`. */
+  maxMinutes: number | null;
+  measurements: MeasurementSystem;
+  /** Empty means "don't constrain": the prompt then says nothing about
+   *  equipment at all, rather than claiming the kitchen has none. */
+  equipment: string[];
+}
+
+export const DEFAULT_RECIPE_OPTIONS: RecipeOptions = {
+  servings: 2,
+  maxMinutes: 45,
+  measurements: 'either',
+  equipment: [],
+};
+
 export interface PantryItem {
   id: string;
   name: string;

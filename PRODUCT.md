@@ -47,7 +47,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 - Grocery list assembled from three sources: `auto` (the things you usually buy, minus what's in the pantry), `out` (marked out of stock), `manual`.
 - Typical-order baseline, edited in Settings.
 - Saved tab for TikTok/Instagram/image cooking inspiration, tagged by meal.
-- **Make a recipe with Claude**, from the Saved tab's add sheet: the app builds a prompt carrying the in-stock pantry list and opens it in Claude. Claude returns one self-contained HTML file that reads on its own and carries its recipes as embedded JSON; importing it (by file or by paste) saves them as Saved items with an in-app reader. The app parses no prose, calls no API and holds no key.
+- **Make a recipe with Claude**, from the Saved tab's add sheet: an options sheet sets servings, the longest the recipe may take, whether measurements come in cups or grams, and which equipment the kitchen has; the app then builds a prompt carrying those plus the in-stock pantry list and opens it in Claude. Claude returns one self-contained HTML file that reads on its own and carries its recipes as embedded JSON; importing it (by file or by paste) saves them as Saved items with an in-app reader. The four options are remembered on the device, so they are set once. The app parses no prose, calls no API and holds no key.
 - Barcode scanning for product name and category lookup.
 - Receipt photo → pantry population.
 - Full JSON export/import.
@@ -92,7 +92,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 2. **Never make the user type what a camera can read.** Receipts and barcodes are inputs; typing is the fallback.
 3. **The list is derived, never maintained.** The user curates the typical order and the pantry; the grocery list follows from them.
 4. **Aisle-grade reliability.** One hand, bad signal, cold hands, glancing at the screen between shelves. Anything that fails there fails.
-5. **Nothing leaves the device unless the user exports it.** No account, no telemetry, no sync as a solution to any problem. There are exactly two exports and each is a button the user presses: the JSON backup, and the Claude hand-off, which puts the in-stock pantry list into a link and opens it. Neither runs on its own, and the Claude one transmits nothing until the user taps send in Claude. Anything added to that prompt is added to what leaves the device — the out-of-stock list, the usually-buy baseline and the shopping list are deliberately not in it.
+5. **Nothing leaves the device unless the user exports it.** No account, no telemetry, no sync as a solution to any problem. There are exactly two exports and each is a button the user presses: the JSON backup, and the Claude hand-off, which puts the in-stock pantry list into a link and opens it. Neither runs on its own, and the Claude one transmits nothing until the user taps send in Claude. Anything added to that prompt is added to what leaves the device. It carries the in-stock pantry list and the four recipe options — servings, maximum time, measurement system, equipment. The out-of-stock list, the usually-buy baseline and the shopping list are deliberately not in it.
 
 ## Accessibility & Inclusion
 

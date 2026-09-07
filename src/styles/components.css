@@ -515,6 +515,101 @@
    The button carries no explanatory line: `.btn-block` already spans the sheet
    and the rule below does the separating, so there is nothing left to style. */
 
+/* ── The recipe options sheet ─────────────────────────────────────
+   Four things the recipes come back wrong without, on the sheet that opens in
+   place of the add sheet. Label and value share a line above the control, so
+   the reading ("Serves — 4 people") sits where the thumb is not. */
+.recipe-opt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recipe-opt-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 2px;
+}
+
+.recipe-opt-head label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+}
+
+.recipe-opt-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--kb-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The app's only slider, and its only new widget in a long while. The input is
+   44px tall with a transparent ground so the hit target clears the floor while
+   the track stays a hairline-thin 4px; the thumb is an 8px-radius square, not
+   a circle, because 8px on controls and 7px on the checkbox are the only two
+   radii this world has and circles belong to the incumbent system. */
+.recipe-slider {
+  width: 100%;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.recipe-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--kb-card-edge);
+}
+
+.recipe-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--kb-card-edge);
+}
+
+.recipe-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  /* Half the thumb, less half the track, so it rides centred on the line. */
+  margin-top: -12px;
+  border: 1px solid var(--kb-ink);
+  border-radius: 8px;
+  background: var(--kb-ink);
+}
+
+.recipe-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--kb-ink);
+  border-radius: 8px;
+  background: var(--kb-ink);
+}
+
+/* The ring lands inside the control, and ink inside ink measures 1.00:1 —
+   the same flip the dock's primary button and the pressed filter make. */
+.recipe-slider:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--kb-card);
+  outline-offset: -4px;
+}
+
+.recipe-slider:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--kb-card);
+  outline-offset: -4px;
+}
+
+/* The equipment checklist reuses the receipt review's card wholesale, so it
+   only needs the room its rows do not carry: a name with no second line. */
+#recipe-equipment .kb-review-main {
+  padding-block: 8px;
+}
+
 /* The one hairline in the sheet. `.modal-body` supplies the 16px either side
    of it through its own gap, so this rule carries no margin of its own. */
 .inspo-sheet-rule {

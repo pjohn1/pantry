@@ -4,6 +4,7 @@ import {
   UNITS,
   coerceCategory,
   type PantryItem,
+  type RecipeOptions,
   type SavedRecipe,
   type SavedRecipeIngredient,
 } from '../models/types';
@@ -36,22 +37,58 @@ function itemLine(item: PantryItem, detailed: boolean): string {
   return `- ${item.name} (${amount}, ${CATEGORY_LABELS[item.category].toLowerCase()})`;
 }
 
+/** How the sliders and the segmented control read as a sentence. */
+function askLine(options: RecipeOptions): string {
+  const serves = options.servings === 1 ? 'for one person' : `for ${options.servings} people`;
+  const within = options.maxMinutes
+    ? `, each ready in ${options.maxMinutes} minutes or less,`
+    : ',';
+  return `Suggest ${RECIPE_COUNT} different recipes I could cook ${serves}${within} favouring ones that lean on what I already have. Each recipe may call for at most 3 ingredients I don't have; say plainly which those are. Vary them — don't give me three versions of the same dish.`;
+}
+
+function measurementLine(options: RecipeOptions): string {
+  if (options.measurements === 'us') {
+    return '\n\nGive every quantity in US customary measures — cups, ounces, tablespoons and teaspoons — not metric.';
+  }
+  if (options.measurements === 'metric') {
+    return '\n\nGive every quantity in metric — grams, kilograms, millilitres and litres — not cups or ounces.';
+  }
+  return '';
+}
+
+/** Said only when something is ticked. An empty selection means the user has
+ *  not told us, which is not the same as a kitchen with nothing in it. */
+function equipmentLine(options: RecipeOptions): string {
+  if (options.equipment.length === 0) return '';
+  return `\n\nThe only equipment I have is: ${options.equipment.join(', ')}. Don't suggest anything that needs equipment I haven't listed.`;
+}
+
 /**
  * The prompt, in one place so it can be read and edited as prose.
  *
- * It carries only what the user chose to send: the items they currently have.
- * Not the out-of-stock list, not the usually-buy baseline, not the shopping
- * list. Anything added here is added to what leaves the device.
+ * It carries only what the user chose to send: the items they currently have,
+ * plus the four things they set on the options sheet. Not the out-of-stock
+ * list, not the usually-buy baseline, not the shopping list. Anything added
+ * here is added to what leaves the device.
  */
-function promptFor(items: PantryItem[], detailed: boolean, omitted: number): string {
+function promptFor(
+  items: PantryItem[],
+  detailed: boolean,
+  omitted: number,
+  options: RecipeOptions,
+): string {
   const list = items.map(item => itemLine(item, detailed)).join('\n');
   const andMore = omitted > 0 ? `\n- (and ${omitted} more items)` : '';
+  const servingsRule = `\n- "servings" must be ${options.servings} on every recipe.`;
+  const timeRule = options.maxMinutes
+    ? `\n- "totalMinutes" must be present and must be ${options.maxMinutes} or less.`
+    : '';
 
   return `Here is everything in my pantry right now:
 
 ${list}${andMore}
 
-Suggest ${RECIPE_COUNT} different recipes I could cook, favouring ones that lean on what I already have. Each recipe may call for at most 3 ingredients I don't have; say plainly which those are. Vary them — don't give me three versions of the same dish.
+${askLine(options)}${measurementLine(options)}${equipmentLine(options)}
 
 Then give me the whole thing back as ONE downloadable file named pantry-recipes.html, built exactly like this:
 
@@ -64,8 +101,8 @@ Then give me the whole thing back as ONE downloadable file named pantry-recipes.
   {
     "title": "Honey garlic salmon",
     "summary": "One sentence on what it is and why it works.",
-    "servings": 2,
-    "totalMinutes": 30,
+    "servings": ${options.servings},
+    "totalMinutes": ${options.maxMinutes ?? 30},
     "ingredients": [
       {"name": "salmon fillets", "quantity": 2, "unit": "pieces", "category": "seafood", "have": true},
       {"name": "honey", "quantity": 2, "unit": "tbsp", "category": "condiments", "have": false}
@@ -81,7 +118,7 @@ Rules for that JSON:
 - "unit" must be exactly one of: ${UNITS.join(', ')}.
 - "have" is true only for ingredients that appear on my pantry list above, and false for everything else.
 - "steps" are plain sentences in order, with no numbering, no bullets and no markdown.
-- "title", "summary", "ingredients" and "steps" are required on every recipe; "servings", "totalMinutes" and "notes" are optional.
+- "title", "summary", "ingredients" and "steps" are required on every recipe; "notes" is optional.${servingsRule}${timeRule}
 - The JSON must be valid and must describe exactly the same recipes as the page above it.
 
 Give me the finished file to download, and keep any commentary to a sentence.`;
@@ -99,7 +136,10 @@ export function claudeRecipeUrl(prompt: string): string {
  * bearing), then the tail of the list. A pantry of any size still produces a
  * link that works, which is the only property that matters here.
  */
-export function buildRecipeHandoff(pantry: PantryItem[]): { prompt: string; url: string } {
+export function buildRecipeHandoff(
+  pantry: PantryItem[],
+  options: RecipeOptions,
+): { prompt: string; url: string } {
   // Only what is actually in stock. An item marked out is one the user knows
   // they don't have, and putting it in front of Claude invites a recipe built
   // around the one thing that ran out.
@@ -110,7 +150,7 @@ export function buildRecipeHandoff(pantry: PantryItem[]): { prompt: string; url:
   for (const detailed of [true, false]) {
     let count = items.length;
     while (count >= 0) {
-      const prompt = promptFor(items.slice(0, count), detailed, items.length - count);
+      const prompt = promptFor(items.slice(0, count), detailed, items.length - count, options);
       const url = claudeRecipeUrl(prompt);
       if (url.length <= MAX_URL_LENGTH) return { prompt, url };
       // Drop a tenth of what is left each pass rather than one item at a time,
@@ -119,7 +159,7 @@ export function buildRecipeHandoff(pantry: PantryItem[]): { prompt: string; url:
     }
   }
 
-  const prompt = promptFor([], false, items.length);
+  const prompt = promptFor([], false, items.length, options);
   return { prompt, url: claudeRecipeUrl(prompt) };
 }
 

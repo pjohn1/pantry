@@ -12,7 +12,16 @@ import {
 import { getAllPantryItems } from '../../services/pantry.service';
 import { buildRecipeHandoff, parseRecipeFile } from '../../services/claude-recipe.service';
 import { describeLink } from '../../services/cover.service';
-import type { InspoItem } from '../../models/types';
+import {
+  EQUIPMENT,
+  SERVINGS_MAX,
+  SERVINGS_MIN,
+  TIME_STEPS,
+  type InspoItem,
+  type MeasurementSystem,
+  type PantryItem,
+} from '../../models/types';
+import { loadRecipeOptions, saveRecipeOptions } from '../../utils/recipe-options';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { setDock } from '../shared/dock';
@@ -32,6 +41,12 @@ const ICON_PENCIL =
 interface FocusMark {
   id: string;
   control: string;
+}
+
+/** Equipment is stored lowercase because that is how it reads in the prompt;
+ *  a row in a list still opens with a capital. */
+function sentenceCase(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }
 
 function savedOn(ts: number): string {
@@ -475,6 +490,206 @@ export function createInspoView(): HTMLElement {
     });
   }
 
+  /**
+   * What to ask Claude for, before asking.
+   *
+   * Four things the recipes come back wrong without: how many it feeds, how
+   * long you have, which measures you read, and what you can actually cook
+   * with. All four are remembered, so this is a sheet you set up once and then
+   * tap straight through.
+   *
+   * It opens *in place of* the add sheet rather than on top of it — see the
+   * comment on the button that opens it.
+   */
+  function openRecipeOptionsSheet(pantry: PantryItem[] | null) {
+    const options = loadRecipeOptions();
+    let items = pantry;
+    // Only if the add sheet's read had not landed when it closed. The common
+    // path already has the pantry and does no second read.
+    if (!items) {
+      void getAllPantryItems().then(loaded => { items = loaded; }).catch(() => { items = null; });
+    }
+
+    openModal('Make a recipe', (body, close) => {
+      // ── Serves ───────────────────────────────────────────────
+      const servesRow = el('div', { className: 'recipe-opt' });
+      const servesHead = el('div', { className: 'recipe-opt-head' });
+      servesHead.appendChild(el('label', { for: 'recipe-serves' }, 'Serves'));
+      const servesValue = el('span', { className: 'recipe-opt-value' });
+      servesHead.appendChild(servesValue);
+      servesRow.appendChild(servesHead);
+      const servesInput = el('input', {
+        className: 'recipe-slider', type: 'range', id: 'recipe-serves',
+        min: String(SERVINGS_MIN), max: String(SERVINGS_MAX), step: '1',
+      }) as HTMLInputElement;
+      servesInput.value = String(options.servings);
+      servesRow.appendChild(servesInput);
+      body.appendChild(servesRow);
+
+      function paintServes() {
+        const n = Number(servesInput.value);
+        servesValue.textContent = n === 1 ? '1 person' : `${n} people`;
+      }
+      paintServes();
+      on(servesInput, 'input', () => {
+        options.servings = Number(servesInput.value);
+        paintServes();
+        saveRecipeOptions(options);
+      });
+
+      // ── Ready in ─────────────────────────────────────────────
+      // Driven by index rather than by minutes, so the stops are the ones in
+      // TIME_STEPS and the far end can be "no limit" rather than a number.
+      const timeRow = el('div', { className: 'recipe-opt' });
+      const timeHead = el('div', { className: 'recipe-opt-head' });
+      timeHead.appendChild(el('label', { for: 'recipe-time' }, 'Ready in'));
+      const timeValue = el('span', { className: 'recipe-opt-value' });
+      timeHead.appendChild(timeValue);
+      timeRow.appendChild(timeHead);
+      const timeInput = el('input', {
+        className: 'recipe-slider', type: 'range', id: 'recipe-time',
+        min: '0', max: String(TIME_STEPS.length - 1), step: '1',
+      }) as HTMLInputElement;
+      const startIndex = TIME_STEPS.indexOf(options.maxMinutes);
+      timeInput.value = String(startIndex === -1 ? TIME_STEPS.length - 1 : startIndex);
+      timeRow.appendChild(timeInput);
+      body.appendChild(timeRow);
+
+      function paintTime() {
+        const minutes = TIME_STEPS[Number(timeInput.value)];
+        timeValue.textContent = minutes === null ? 'No limit' : `${minutes} min`;
+      }
+      paintTime();
+      on(timeInput, 'input', () => {
+        options.maxMinutes = TIME_STEPS[Number(timeInput.value)];
+        paintTime();
+        saveRecipeOptions(options);
+      });
+
+      // ── Measurements ─────────────────────────────────────────
+      // The app's existing one-of-N control, the same three-up row the add
+      // sheet uses for Link / Screenshot / Recipe.
+      const measureRow = el('div', { className: 'recipe-opt' });
+      measureRow.appendChild(el('div', { className: 'recipe-opt-head' },
+        el('label', {}, 'Measurements')));
+      const measureTabs = el('div', { className: 'inspo-modal-tabs', role: 'tablist' });
+      const measureBtns: [MeasurementSystem, HTMLElement][] = [
+        ['us', el('button', { className: 'inspo-modal-tab', role: 'tab' }, 'Cups')],
+        ['metric', el('button', { className: 'inspo-modal-tab', role: 'tab' }, 'Grams')],
+        ['either', el('button', { className: 'inspo-modal-tab', role: 'tab' }, 'Either')],
+      ];
+      function paintMeasure() {
+        for (const [value, btn] of measureBtns) {
+          const selected = value === options.measurements;
+          btn.classList.toggle('active', selected);
+          btn.setAttribute('aria-selected', String(selected));
+        }
+      }
+      for (const [value, btn] of measureBtns) {
+        on(btn, 'click', () => {
+          options.measurements = value;
+          paintMeasure();
+          saveRecipeOptions(options);
+        });
+        measureTabs.appendChild(btn);
+      }
+      paintMeasure();
+      measureRow.appendChild(measureTabs);
+      body.appendChild(measureRow);
+
+      // ── Equipment ────────────────────────────────────────────
+      // Disclosed inline rather than in a sheet of its own, for the same
+      // reason this sheet replaced the last one: sheets do not stack here.
+      const chosen = new Set(options.equipment);
+
+      const equipBtn = el('button', {
+        className: 'btn btn-secondary btn-block',
+        'aria-expanded': 'false',
+        'aria-controls': 'recipe-equipment',
+      }) as HTMLButtonElement;
+      const equipList = el('div', {
+        className: 'kb-review-list', id: 'recipe-equipment', role: 'list',
+      });
+      equipList.hidden = true;
+
+      function equipSummary(): string {
+        // Empty says "any", not "none": not having told us is different from
+        // a kitchen with nothing in it, and the prompt treats it that way too.
+        if (chosen.size === 0) return 'Any equipment';
+        const picked = EQUIPMENT.filter(item => chosen.has(item));
+        const [first, second] = picked;
+        if (picked.length === 1) return sentenceCase(first);
+        if (picked.length === 2) return `${sentenceCase(first)} and ${second}`;
+        return `${sentenceCase(first)}, ${second} and ${picked.length - 2} more`;
+      }
+      function paintEquip() {
+        equipBtn.textContent = equipSummary();
+      }
+      paintEquip();
+
+      for (const item of EQUIPMENT) {
+        const row = el('div', { className: 'kb-review-row', role: 'listitem' });
+        const check = el('button', {
+          className: 'kb-check',
+          role: 'checkbox',
+          'aria-checked': String(chosen.has(item)),
+          'aria-label': item,
+        });
+        check.appendChild(el('span', { className: 'kb-check-box' }));
+        on(check, 'click', () => {
+          const now = !chosen.has(item);
+          now ? chosen.add(item) : chosen.delete(item);
+          check.setAttribute('aria-checked', String(now));
+          options.equipment = EQUIPMENT.filter(e => chosen.has(e));
+          paintEquip();
+          saveRecipeOptions(options);
+        });
+        row.appendChild(check);
+        const main = el('div', { className: 'kb-review-main' });
+        main.appendChild(el('span', { className: 'kb-review-name' }, sentenceCase(item)));
+        row.appendChild(main);
+        equipList.appendChild(row);
+      }
+
+      on(equipBtn, 'click', () => {
+        const open_ = equipList.hidden;
+        equipList.hidden = !open_;
+        equipBtn.setAttribute('aria-expanded', String(open_));
+      });
+
+      const equipRow = el('div', { className: 'recipe-opt' });
+      equipRow.appendChild(el('div', { className: 'recipe-opt-head' },
+        el('label', {}, 'Equipment')));
+      equipRow.appendChild(equipBtn);
+      equipRow.appendChild(equipList);
+      body.appendChild(equipRow);
+
+      // ── Send ─────────────────────────────────────────────────
+      const sendBtn = el('button', { className: 'btn btn-primary btn-block' }, 'Open Claude');
+      body.appendChild(sendBtn);
+
+      on(sendBtn, 'click', () => {
+        if (!items) {
+          showToast('Still reading your pantry — try that again.', 'error');
+          return;
+        }
+        // An empty pantry would send Claude a prompt with nothing in it, and
+        // get back three recipes for a kitchen that isn't this one.
+        if (items.filter(item => !item.isOut).length === 0) {
+          showToast('Add something to your pantry first.', 'error');
+          return;
+        }
+        const { prompt, url } = buildRecipeHandoff(items, options);
+        // The clipboard is the safety net if the composer does not prefill.
+        // Best effort and never awaited: the link is what has to work.
+        void navigator.clipboard?.writeText(prompt).catch(() => {});
+        window.open(url, '_blank', 'noopener,noreferrer');
+        close();
+        showToast('Opening Claude. The prompt is copied too, in case it doesn\u2019t fill in.');
+      });
+    });
+  }
+
   function openAddSheet() {
     openModal('Save an idea', (body, close) => {
       // ── Make a recipe with Claude ──────────────────────────────
@@ -487,36 +702,21 @@ export function createInspoView(): HTMLElement {
       body.appendChild(claudeBtn);
       body.appendChild(el('div', { className: 'inspo-sheet-rule' }));
 
-      // Read the pantry as the sheet opens rather than when the button is
-      // tapped. A window.open that follows an await has left the user gesture
-      // behind, and iOS blocks it — so the handler below has to be synchronous.
-      let handoff: { prompt: string; url: string; stocked: number } | null = null;
+      // Start the read here, so the options sheet opens with the pantry
+      // already in hand and its send button can stay synchronous — a
+      // window.open that follows an await has left the user gesture behind,
+      // and iOS blocks it.
+      let pantry: PantryItem[] | null = null;
       void getAllPantryItems()
-        .then(pantry => {
-          handoff = {
-            ...buildRecipeHandoff(pantry),
-            stocked: pantry.filter(item => !item.isOut).length,
-          };
-        })
-        .catch(() => { handoff = null; });
+        .then(items => { pantry = items; })
+        .catch(() => { pantry = null; });
 
       on(claudeBtn, 'click', () => {
-        if (!handoff) {
-          showToast('Still reading your pantry — try that again.', 'error');
-          return;
-        }
-        // An empty pantry would send Claude a prompt with nothing in it, and
-        // get back three recipes for a kitchen that isn't this one.
-        if (handoff.stocked === 0) {
-          showToast('Add something to your pantry first.', 'error');
-          return;
-        }
-        // The clipboard is the safety net if the composer does not prefill.
-        // Best effort and never awaited: the link is what has to work.
-        void navigator.clipboard?.writeText(handoff.prompt).catch(() => {});
-        window.open(handoff.url, '_blank', 'noopener,noreferrer');
+        // Swapped, never stacked. `openModal` puts its Escape handler on the
+        // document with no modal stack, so two open sheets means one Escape
+        // closes both and the two focus traps fight over Tab.
         close();
-        showToast('Opening Claude. The prompt is copied too, in case it doesn’t fill in.');
+        openRecipeOptionsSheet(pantry);
       });
 
       const titleGroup = el('div', { className: 'input-group' });
