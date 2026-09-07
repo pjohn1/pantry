@@ -6,8 +6,9 @@
    an object with labelled field boxes, its state is a stamp rather
    than a fill, and the ritual is pulling a card off the rack.
 
-   Deliberately scoped to `.pantry-view`. The other four tabs still
-   run the incumbent system until this world is propagated to them.
+   Scoped to `.kb-rack-view`, worn by the Pantry rack and the Grocery
+   reorder box. Recipes, Saved and Settings still run the incumbent
+   system until this world is propagated to them.
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tokens live at the root so both the shell and the view can read them;
@@ -50,12 +51,13 @@
 /* The rack runs edge to edge: the grid is the composition, not a panel
    floating inside one. Handing the shell's padding back to the view is
    what makes position:sticky measure from the real top of the screen. */
-.app-content[data-route='pantry'] {
+.app-content[data-route='pantry'],
+.app-content[data-route='grocery'] {
   padding: 0;
   background: var(--kb-board);
 }
 
-.pantry-view {
+.kb-rack-view {
   padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 92px);
   min-height: 100%;
   background: var(--kb-board);
@@ -237,6 +239,12 @@
 
 .kb-field-unit {
   grid-column: 3;
+  /* Everything in this cell stays on the card's single field line: a
+     wrapped field row silently costs visible rows. */
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .kb-num {
@@ -560,7 +568,7 @@
   50% { opacity: 0.45; }
 }
 
-.pantry-view :focus-visible {
+.kb-rack-view :focus-visible {
   outline: 2px solid var(--kb-ink);
   outline-offset: -3px;
 }
@@ -584,4 +592,41 @@
   .kb-dock-scan {
     max-width: 460px;
   }
+}
+
+/* ── The reorder box (Grocery) ─────────────────────────────────────
+   A card pulled off the rack waits here until the goods arrive, then
+   goes back on the rack. So `to get` is the reorder state this world
+   already has an ink for, and `in cart` is the goods-in-hand step
+   before the card is filed back into the pantry. */
+
+
+/* In the cart: the card is spoken for, so it recedes without being
+   struck through — a kanban card in transit is marked, not cancelled. */
+.kb-card.is-incart .kb-card-name {
+  color: var(--kb-ink-soft);
+}
+
+.kb-card.is-incart {
+  background: color-mix(in srgb, var(--kb-card) 94%, var(--kb-stocked));
+}
+
+.kb-stamp--toget {
+  color: var(--kb-reorder);
+}
+
+.kb-stamp--incart {
+  color: var(--kb-stocked);
+}
+
+/* Infrequent list management belongs after the list, not above it. */
+.kb-rack-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 12px 0;
+}
+
+.kb-rack-actions .kb-btn {
+  flex: none;
 }

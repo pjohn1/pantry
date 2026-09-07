@@ -59,7 +59,7 @@ const STAMP: Record<CardStatus, { label: string; cls: string; action: string }> 
 };
 
 export function createPantryView(): HTMLElement {
-  const container = el('div', { className: 'pantry-view' });
+  const container = el('div', { className: 'kb-rack-view pantry-view' });
 
   // ── Toolbar ────────────────────────────────────────────────────
   const toolbar = el('div', { className: 'kb-toolbar' });

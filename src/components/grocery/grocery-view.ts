@@ -9,87 +9,159 @@ import {
   clearCheckedItems,
   purchaseGroceryItem,
 } from '../../services/grocery.service';
-import { CATEGORY_LABELS, type GroceryListItem, type ItemCategory } from '../../models/types';
+import { CATEGORIES, CATEGORY_LABELS, type GroceryListItem } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { extractReceiptLinesFromImage } from '../../services/ocr.service';
 import { parseReceiptLines, processReceiptAgainstGroceryList } from '../../services/receipt.service';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
+import { createSwipeRow, closeAnyOpenSwipeRow } from '../shared/swipe-row';
 
-function sourceLabel(source: string): string {
+// svgIcon() assigns innerHTML, so an icon must be markup, not a bare `d`.
+const ICON_RECEIPT =
+  '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>';
+const ICON_BARCODE =
+  '<path d="M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z"/>';
+const ICON_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+
+/** Why this card was pulled, in the language of the rack it came from. */
+function sourceLabel(source: GroceryListItem['source']): string {
   switch (source) {
-    case 'auto': return 'auto';
+    case 'auto': return 'baseline';
+    case 'out': return 'ran out';
     case 'recipe': return 'recipe';
-    case 'out': return 'out of stock';
-    case 'manual': return 'manual';
+    case 'manual': return 'by hand';
     default: return source;
   }
 }
 
 export function createGroceryView(): HTMLElement {
-  const container = el('div', { className: 'grocery-view' });
+  const container = el('div', { className: 'kb-rack-view grocery-view' });
 
-  // Summary bar
-  const summary = el('div', { className: 'summary-bar' });
-  container.appendChild(summary);
+  // ── Toolbar ────────────────────────────────────────────────────
+  const toolbar = el('div', { className: 'kb-toolbar' });
 
-  // Search bar
-  const searchBar = el('div', { className: 'search-bar' });
-  searchBar.appendChild(svgIcon('<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'));
-  const searchInput = el('input', { className: 'input', type: 'text', placeholder: 'Search grocery list...' });
-  searchBar.appendChild(searchInput);
-  container.appendChild(searchBar);
+  const searchInput = el('input', {
+    className: 'kb-search',
+    type: 'search',
+    placeholder: 'Find a card',
+    'aria-label': 'Search the list',
+    autocapitalize: 'none',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'search',
+  }) as HTMLInputElement;
+  toolbar.appendChild(searchInput);
 
-  // Action bar
-  const actionBar = el('div', { className: 'input-row' });
-  actionBar.style.marginBottom = '16px';
+  const toGetBtn = el('button', {
+    className: 'kb-pulled',
+    'aria-pressed': 'false',
+  }) as HTMLButtonElement;
+  const toGetN = el('span', { className: 'kb-pulled-n' }, '0');
+  toGetBtn.appendChild(toGetN);
+  toGetBtn.appendChild(el('span', {}, 'to get'));
+  toolbar.appendChild(toGetBtn);
+  container.appendChild(toolbar);
 
-  const refreshBtn = el('button', { className: 'btn btn-secondary btn-sm' });
-  refreshBtn.appendChild(svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>', 16));
-  refreshBtn.appendChild(document.createTextNode(' Refresh'));
-  on(refreshBtn, 'click', async () => {
-    await regenerateGroceryList();
-    showToast('Grocery list refreshed', 'success');
-    await loadData();
-  });
-  actionBar.appendChild(refreshBtn);
+  const rackContainer = el('div', { className: 'kb-racks' });
+  container.appendChild(rackContainer);
 
-  const clearBtn = el('button', { className: 'btn btn-secondary btn-sm' }, 'Clear Checked');
-  on(clearBtn, 'click', async () => {
-    const checkedCount = allItems.filter(i => i.checked).length;
-    if (checkedCount === 0) {
-      showToast('No checked items to clear', 'info');
-      return;
-    }
-    await clearCheckedItems();
-    showToast(`${checkedCount} item${checkedCount !== 1 ? 's' : ''} cleared`, 'info');
-    await loadData();
-  });
-  actionBar.appendChild(clearBtn);
-
-  // Hidden file input for receipt image
+  // ── Dock: the camera owns the thumb zone ───────────────────────
   const receiptInput = el('input', {
-    className: 'input',
     type: 'file',
     accept: 'image/*',
+    'aria-hidden': 'true',
   }) as HTMLInputElement;
   receiptInput.style.display = 'none';
   container.appendChild(receiptInput);
 
-  const receiptBtn = el('button', { className: 'btn btn-secondary btn-sm' });
-  receiptBtn.appendChild(svgIcon(
-    '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>',
-    16,
-  ));
-  receiptBtn.appendChild(document.createTextNode(' Scan Receipt'));
+  const dock = el('div', { className: 'kb-dock' });
+
+  // The receipt is the flagship zero-typing path, so it leads.
+  const receiptBtn = el('button', { className: 'kb-dock-btn kb-dock-scan' });
+  function paintReceiptBtn(label: string) {
+    receiptBtn.innerHTML = '';
+    receiptBtn.appendChild(svgIcon(ICON_RECEIPT, 18));
+    receiptBtn.appendChild(el('span', {}, label));
+  }
+  paintReceiptBtn('Receipt');
   on(receiptBtn, 'click', () => receiptInput.click());
+  dock.appendChild(receiptBtn);
+
+  const barcodeBtn = el('button', {
+    className: 'kb-dock-btn kb-dock-new',
+    'aria-label': 'Scan a barcode',
+  });
+  barcodeBtn.appendChild(svgIcon(ICON_BARCODE, 18));
+  on(barcodeBtn, 'click', () => {
+    openBarcodeScanner((name, category) => openAddForm({ name, category }));
+  });
+  dock.appendChild(barcodeBtn);
+
+  const newBtn = el('button', {
+    className: 'kb-dock-btn kb-dock-new',
+    'aria-label': 'Add a card by hand',
+  });
+  newBtn.appendChild(svgIcon(ICON_PLUS, 20));
+  on(newBtn, 'click', () => openAddForm());
+  dock.appendChild(newBtn);
+  container.appendChild(dock);
+
+  // ── State ──────────────────────────────────────────────────────
+  let allItems: GroceryListItem[] = [];
+  let loadFailed = false;
+  let toGetOnly = false;
+  let openCardId: string | null = null;
+  let refocusCardId: string | null = null;
+
+  /**
+   * Wraps a write. These writes move items between the grocery list and the
+   * pantry, so a silent failure here corrupts the same ledger the pantry
+   * tab is careful about.
+   */
+  async function mutate(run: () => Promise<void>, failure: string): Promise<boolean> {
+    try {
+      await run();
+      return true;
+    } catch {
+      showToast(failure, 'error', async () => {
+        if (await mutate(run, failure)) await loadData();
+      }, 'Retry');
+      await loadData();
+      return false;
+    }
+  }
+
+  function openAddForm(initial?: Partial<ItemFormData>) {
+    openModal('New card', (body, close) => {
+      createItemForm(body, {
+        initial,
+        submitLabel: 'Add to the list',
+        onSubmit: async (data: ItemFormData) => {
+          const ok = await mutate(
+            async () => {
+              await addManualGroceryItem(data.name, data.quantity, data.unit, data.category);
+            },
+            `Couldn’t add ${data.name}.`,
+          );
+          if (!ok) return;
+          close();
+          showToast('Card added', 'success');
+          await loadData();
+        },
+      });
+    });
+  }
+
+  // ── Receipt ────────────────────────────────────────────────────
+
   on(receiptInput, 'change', async () => {
     const file = receiptInput.files?.[0];
     if (!file) return;
     receiptInput.value = '';
 
-    receiptBtn.textContent = 'Scanning…';
+    paintReceiptBtn('Reading…');
     receiptBtn.setAttribute('disabled', '');
 
     try {
@@ -97,213 +169,354 @@ export function createGroceryView(): HTMLElement {
       const itemNames = parseReceiptLines(rawLines);
 
       if (itemNames.length === 0) {
-        showToast('No items found on receipt', 'info');
+        showToast('No items found on that receipt', 'info');
         return;
       }
 
       const result = await processReceiptAgainstGroceryList(itemNames);
 
       if (result.matched.length === 0) {
-        showToast('No grocery items matched the receipt', 'info');
+        showToast('Nothing on the list matched that receipt', 'info');
       } else {
-        showToast(
-          `${result.matched.length} item${result.matched.length !== 1 ? 's' : ''} added to pantry`,
-          'success',
-        );
+        const n = result.matched.length;
+        showToast(`${n} card${n !== 1 ? 's' : ''} filed back on the rack`, 'success');
       }
-
       await loadData();
     } catch {
-      showToast('Failed to read receipt', 'error');
+      showToast('Couldn’t read that receipt.', 'error');
     } finally {
       receiptBtn.removeAttribute('disabled');
-      receiptBtn.innerHTML = '';
-      receiptBtn.appendChild(svgIcon(
-        '<rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/>',
-        16,
-      ));
-      receiptBtn.appendChild(document.createTextNode(' Scan Receipt'));
+      paintReceiptBtn('Receipt');
     }
   });
-  actionBar.appendChild(receiptBtn);
 
-  const barcodeScanBtn = el('button', { className: 'btn btn-secondary btn-sm' });
-  barcodeScanBtn.appendChild(svgIcon(
-    '<path d="M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z"/>',
-    16,
-  ));
-  barcodeScanBtn.appendChild(document.createTextNode(' Scan Barcode'));
-  on(barcodeScanBtn, 'click', () => {
-    openBarcodeScanner((name, category) => {
-      openModal('Add Grocery Item', (body, close) => {
-        createItemForm(body, {
-          initial: { name, category },
-          submitLabel: 'Add to List',
-          onSubmit: async (data: ItemFormData) => {
-            await addManualGroceryItem(data.name, data.quantity, data.unit, data.category);
-            close();
-            showToast('Item added', 'success');
-            await loadData();
-          },
-        });
-      });
-    });
-  });
-  actionBar.appendChild(barcodeScanBtn);
+  // ── Derivation ─────────────────────────────────────────────────
 
-  container.appendChild(actionBar);
-
-  // List container
-  const listContainer = el('div', { className: 'list-container has-fab' });
-  container.appendChild(listContainer);
-
-  // FAB for manual add
-  const fab = el('button', { className: 'fab' }, '+');
-  on(fab, 'click', () => {
-    openModal('Add Grocery Item', (body, close) => {
-      createItemForm(body, {
-        submitLabel: 'Add to List',
-        onSubmit: async (data: ItemFormData) => {
-          await addManualGroceryItem(data.name, data.quantity, data.unit, data.category);
-          close();
-          showToast('Item added', 'success');
-          await loadData();
-        },
-      });
-    });
-  });
-  container.appendChild(fab);
-
-  let allItems: GroceryListItem[] = [];
-
-  function updateSummary() {
-    const total = allItems.length;
-    const checked = allItems.filter(i => i.checked).length;
-    summary.textContent = total === 0
-      ? 'No items on your list'
-      : `${checked}/${total} items checked`;
-  }
-
-  function getFilteredItems(): GroceryListItem[] {
+  function visibleItems(): GroceryListItem[] {
+    let list = allItems;
+    if (toGetOnly) list = list.filter(i => !i.checked);
     const query = searchInput.value.trim().toLowerCase();
-    if (!query) return allItems;
-    return allItems.filter(i => i.name.toLowerCase().includes(query));
+    if (query) list = list.filter(i => i.name.toLowerCase().includes(query));
+    return list;
   }
 
-  function renderList() {
+  function updateToGet() {
+    const remaining = allItems.filter(i => !i.checked).length;
+    toGetN.textContent = String(remaining);
+    toGetBtn.hidden = remaining === 0;
+    if (remaining === 0 && toGetOnly) toGetOnly = false;
+    toGetBtn.setAttribute('aria-pressed', String(toGetOnly));
+  }
+
+  // ── Render ─────────────────────────────────────────────────────
+
+  function renderSkeleton() {
+    rackContainer.innerHTML = '';
+    for (let i = 0; i < 5; i++) {
+      const row = el('div', { className: 'kb-skeleton' });
+      row.appendChild(el('div', { className: 'kb-skeleton-line' }));
+      rackContainer.appendChild(row);
+    }
+  }
+
+  function notice(text: string, actionLabel?: string, onAction?: () => void): HTMLElement {
+    const box = el('div', { className: 'kb-notice' });
+    box.appendChild(el('p', { className: 'kb-notice-text' }, text));
+    if (actionLabel && onAction) {
+      const btn = el('button', { className: 'kb-btn' }, actionLabel);
+      on(btn, 'click', onAction);
+      box.appendChild(btn);
+    }
+    return box;
+  }
+
+  function emptyText(): string {
+    const query = searchInput.value.trim();
+    if (allItems.length === 0) {
+      return 'The reorder box is empty. Declare a baseline in Settings, pull a card from the pantry, or add one by hand.';
+    }
+    if (toGetOnly) return 'Everything on the list is in the cart.';
+    if (query) return `No card matches “${query}”.`;
+    return 'Nothing to show.';
+  }
+
+  function renderRacks() {
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
-    listContainer.innerHTML = '';
-    const items = getFilteredItems();
+    closeAnyOpenSwipeRow();
+    rackContainer.innerHTML = '';
 
-    if (items.length === 0) {
-      const empty = el('div', { className: 'empty-state' });
-      empty.appendChild(el('p', { className: 'empty-state-text' },
-        allItems.length === 0
-          ? 'Your grocery list is empty. Set up your typical order in Settings, or tap + to add items.'
-          : 'No items match your search.'
+    if (loadFailed) {
+      rackContainer.appendChild(notice(
+        'Couldn’t read the list from this device’s storage.',
+        'Try again',
+        () => { renderSkeleton(); void loadData(); },
       ));
-      listContainer.appendChild(empty);
       return;
     }
 
-    // Sort: unchecked first, then by category
-    const sorted = [...items].sort((a, b) => {
-      if (a.checked !== b.checked) return a.checked ? 1 : -1;
-      return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
-    });
-
-    // Group by category
-    const grouped = new Map<ItemCategory, GroceryListItem[]>();
-    for (const item of sorted) {
-      const list = grouped.get(item.category) || [];
-      list.push(item);
-      grouped.set(item.category, list);
+    const list = visibleItems();
+    if (list.length === 0) {
+      rackContainer.appendChild(notice(emptyText()));
+      rackContainer.appendChild(renderRackActions());
+      return;
     }
 
-    for (const [cat, catItems] of grouped) {
-      const section = el('div', { className: 'section-group' });
-      const header = el('div', { className: 'section-header' });
-      header.appendChild(el('span', { className: 'section-title' }, CATEGORY_LABELS[cat]));
-      section.appendChild(header);
+    // Canonical category order, so a section never moves as items are added.
+    for (const cat of CATEGORIES) {
+      const inCat = list.filter(i => i.category === cat);
+      if (inCat.length === 0) continue;
 
-      const list = el('div', { className: 'item-list' });
-      for (const item of catItems) {
-        list.appendChild(createGroceryRow(item));
+      // Still to get first: the aisle reads top-down.
+      inCat.sort((a, b) =>
+        Number(a.checked) - Number(b.checked) || a.name.localeCompare(b.name));
+
+      const rack = el('div', { className: 'kb-rack' });
+      const tag = el('div', { className: 'kb-bin-tag' });
+      tag.appendChild(el('span', {}, CATEGORY_LABELS[cat]));
+      const remaining = inCat.filter(i => !i.checked).length;
+      if (remaining > 0) {
+        tag.appendChild(el('span', { className: 'kb-bin-count' }, `${remaining} to get`));
       }
-      section.appendChild(list);
-      listContainer.appendChild(section);
+      rack.appendChild(tag);
+
+      for (const item of inCat) rack.appendChild(renderCard(item));
+      rackContainer.appendChild(rack);
     }
+
+    rackContainer.appendChild(renderRackActions());
 
     if (scrollParent) {
+      requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
+    }
+
+    if (refocusCardId) {
+      const id = refocusCardId;
+      refocusCardId = null;
       requestAnimationFrame(() => {
-        scrollParent.scrollTop = scrollTop;
+        rackContainer
+          .querySelector<HTMLElement>(`[data-card-id="${id}"] .kb-card-main`)
+          ?.focus();
       });
     }
   }
 
-  function createGroceryRow(item: GroceryListItem): HTMLElement {
-    const row = el('div', { className: `item-row${item.checked ? ' checked' : ''}` });
+  function renderCard(item: GroceryListItem): HTMLElement {
+    const holder = el('div', {});
+    holder.dataset.cardId = item.id;
 
-    // Checkbox
-    const checkbox = el('div', { className: `checkbox${item.checked ? ' checked' : ''}` });
-    on(checkbox, 'click', async () => {
-      await toggleGroceryItem(item.id);
+    const surface = el('div', { className: `kb-card${item.checked ? ' is-incart' : ''}` });
+    surface.appendChild(el('span', { className: 'kb-punch' }));
+
+    const main = el('button', {
+      className: 'kb-card-main',
+      'aria-expanded': String(openCardId === item.id),
+    });
+    main.appendChild(el('span', { className: 'kb-card-name' }, item.name));
+
+    // Same fixed tracks as the pantry rack, so both tabs scan alike.
+    const fields = el('span', { className: 'kb-fields' });
+    fields.appendChild(el('span', { className: 'kb-field-label' }, 'Qty'));
+    fields.appendChild(el('span', { className: 'kb-num' }, String(item.quantity)));
+    fields.appendChild(el('span', { className: 'kb-field-unit' },
+      `${item.unit} · ${sourceLabel(item.source)}`));
+    main.appendChild(fields);
+    surface.appendChild(main);
+
+    on(main, 'click', () => toggleDetail(item, holder, main));
+
+    // The aisle action is ticking a card into the cart, so that is what the
+    // stamp does. Filing the card back onto the rack is the slower step and
+    // lives in the detail and the swipe.
+    const stampBtn = el('button', {
+      className: 'kb-stamp-btn',
+      'aria-label': item.checked
+        ? `${item.name}: take back out of the cart`
+        : `${item.name}: put in the cart`,
+    });
+    stampBtn.appendChild(el('span', {
+      className: `kb-stamp ${item.checked ? 'kb-stamp--incart' : 'kb-stamp--toget'}`,
+    }, item.checked ? 'In cart' : 'To get'));
+    on(stampBtn, 'click', () => void toggleInCart(item));
+    surface.appendChild(stampBtn);
+
+    holder.appendChild(createSwipeRow(surface, [
+      { label: 'File', className: 'kb-action--restock', onAction: () => void file(item) },
+      { label: 'Delete', className: 'kb-action--delete', onAction: () => void remove(item) },
+    ]));
+
+    if (openCardId === item.id) holder.appendChild(renderDetail(item));
+    return holder;
+  }
+
+  function toggleDetail(item: GroceryListItem, holder: HTMLElement, main: HTMLElement) {
+    if (openCardId === item.id) {
+      openCardId = null;
+      holder.querySelector('.kb-detail')?.remove();
+      main.setAttribute('aria-expanded', 'false');
+      return;
+    }
+    if (openCardId) {
+      const prev = rackContainer.querySelector(`[data-card-id="${openCardId}"]`);
+      prev?.querySelector('.kb-detail')?.remove();
+      prev?.querySelector('.kb-card-main')?.setAttribute('aria-expanded', 'false');
+    }
+    openCardId = item.id;
+    holder.appendChild(renderDetail(item));
+    main.setAttribute('aria-expanded', 'true');
+  }
+
+  function renderDetail(item: GroceryListItem): HTMLElement {
+    const detail = el('div', { className: 'kb-detail' });
+
+    const row = (label: string, value: string) => {
+      const r = el('div', { className: 'kb-detail-row' });
+      r.appendChild(el('span', { className: 'kb-detail-label' }, label));
+      r.appendChild(el('span', { className: 'kb-detail-val' }, value));
+      detail.appendChild(r);
+    };
+
+    row('Name', item.name);
+    row('Bin', CATEGORY_LABELS[item.category]);
+    row('Quantity', `${item.quantity} ${item.unit}`);
+    row('Pulled by', sourceLabel(item.source));
+    row('Status', item.checked ? 'In the cart' : 'Still to get');
+
+    // Filing is what completes the loop: the card leaves the reorder box and
+    // goes back on the rack as pantry stock.
+    const primary = el('button', { className: 'kb-btn kb-btn--primary' },
+      'File back on the rack');
+    on(primary, 'click', () => void file(item));
+    detail.appendChild(primary);
+
+    const actions = el('div', { className: 'kb-detail-actions' });
+    const delBtn = el('button', { className: 'kb-btn kb-btn--danger' }, 'Delete') as HTMLButtonElement;
+    on(delBtn, 'click', async () => {
+      delBtn.disabled = true;
+      await remove(item);
+      delBtn.disabled = false;
+    });
+    actions.appendChild(delBtn);
+    detail.appendChild(actions);
+
+    return detail;
+  }
+
+  function renderRackActions(): HTMLElement {
+    const box = el('div', { className: 'kb-rack-actions' });
+
+    const refresh = el('button', { className: 'kb-btn' }, 'Rebuild from baseline');
+    on(refresh, 'click', async () => {
+      const ok = await mutate(
+        async () => { await regenerateGroceryList(); },
+        'Couldn’t rebuild the list.',
+      );
+      if (!ok) return;
+      showToast('List rebuilt from your baseline', 'success');
       await loadData();
     });
-    row.appendChild(checkbox);
+    box.appendChild(refresh);
 
-    // Content
-    const content = el('div', { className: 'item-row-content' });
-    const nameEl = el('div', { className: 'item-row-name' }, item.name);
-    content.appendChild(nameEl);
-
-    const detail = el('div', { className: 'item-row-detail' });
-    detail.textContent = `${item.quantity} ${item.unit} \u2022 ${sourceLabel(item.source)}`;
-    content.appendChild(detail);
-
-    row.appendChild(content);
-
-    // Action buttons
-    const actions = el('div', { className: 'item-row-actions' });
-
-    // Purchased button
-    const purchaseBtn = el('button', { className: 'btn btn-sm btn-success' }, 'Got it');
-    on(purchaseBtn, 'click', async () => {
-      await purchaseGroceryItem(item.id);
-      showToast(`${item.name} added to pantry`, 'success');
-      await loadData();
-    });
-    actions.appendChild(purchaseBtn);
-
-    // Delete button
-    const deleteBtn = el('button', { className: 'btn btn-sm btn-secondary' }, '\u00D7');
-    deleteBtn.style.minWidth = '32px';
-    on(deleteBtn, 'click', async () => {
-      const savedItem = { ...item };
-      await deleteGroceryItem(item.id);
-      showToast('Item removed', 'info', async () => {
-        await restoreGroceryItem(savedItem);
+    // Named for what it does. This deletes the cards outright; it does not
+    // file them into the pantry, which is what "clear checked" implied.
+    const inCart = allItems.filter(i => i.checked).length;
+    if (inCart > 0) {
+      const discard = el('button', { className: 'kb-btn kb-btn--danger' },
+        `Discard ${inCart} in cart without filing`);
+      on(discard, 'click', async () => {
+        const saved = allItems.filter(i => i.checked).map(i => ({ ...i }));
+        const ok = await mutate(
+          async () => { await clearCheckedItems(); },
+          'Couldn’t discard those cards.',
+        );
+        if (!ok) return;
+        showToast(`${saved.length} discarded`, 'info', async () => {
+          for (const item of saved) {
+            await mutate(
+              async () => { await restoreGroceryItem(item); },
+              `Couldn’t bring ${item.name} back.`,
+            );
+          }
+          await loadData();
+        });
         await loadData();
       });
+      box.appendChild(discard);
+    }
+
+    return box;
+  }
+
+  // ── Actions ────────────────────────────────────────────────────
+
+  async function toggleInCart(item: GroceryListItem) {
+    refocusCardId = item.id;
+    const ok = await mutate(
+      async () => { await toggleGroceryItem(item.id); },
+      `Couldn’t update ${item.name}.`,
+    );
+    if (!ok) return;
+    await loadData();
+  }
+
+  async function file(item: GroceryListItem) {
+    const ok = await mutate(
+      async () => { await purchaseGroceryItem(item.id); },
+      `Couldn’t file ${item.name} back on the rack.`,
+    );
+    if (!ok) return;
+    if (openCardId === item.id) openCardId = null;
+    showToast(`${item.name} back on the rack`, 'success');
+    await loadData();
+  }
+
+  async function remove(item: GroceryListItem) {
+    const saved = { ...item };
+    const ok = await mutate(
+      async () => { await deleteGroceryItem(item.id); },
+      `Couldn’t remove ${item.name}.`,
+    );
+    if (!ok) return;
+    if (openCardId === item.id) openCardId = null;
+    showToast('Card removed', 'info', async () => {
+      await mutate(
+        async () => { await restoreGroceryItem(saved); },
+        `Couldn’t bring ${saved.name} back.`,
+      );
       await loadData();
     });
-    actions.appendChild(deleteBtn);
-
-    row.appendChild(actions);
-
-    return row;
+    await loadData();
   }
+
+  // ── Load ───────────────────────────────────────────────────────
 
   async function loadData() {
-    allItems = await getAllGroceryItems();
-    updateSummary();
-    renderList();
+    try {
+      allItems = await getAllGroceryItems();
+      loadFailed = false;
+    } catch {
+      loadFailed = true;
+      allItems = [];
+    }
+    updateToGet();
+    renderRacks();
   }
 
-  on(searchInput, 'input', () => renderList());
-  loadData();
+  on(toGetBtn, 'click', () => {
+    toGetOnly = !toGetOnly;
+    toGetBtn.setAttribute('aria-pressed', String(toGetOnly));
+    renderRacks();
+  });
+
+  let searchTimer: number | undefined;
+  on(searchInput, 'input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => renderRacks(), 150);
+  });
+
+  renderSkeleton();
+  void loadData();
 
   return container;
 }
