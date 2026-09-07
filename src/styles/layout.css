@@ -14,7 +14,9 @@
   -webkit-overflow-scrolling: touch;
   padding: var(--spacing-md);
   padding-top: calc(var(--safe-area-top) + var(--spacing-md));
+  padding-right: calc(var(--spacing-md) + var(--safe-area-right));
   padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + var(--spacing-md));
+  padding-left: calc(var(--spacing-md) + var(--safe-area-left));
   background: var(--color-bg);
 }
 
@@ -37,7 +39,7 @@
   display: flex;
   align-items: stretch;
   height: calc(var(--tab-bar-height) + var(--safe-area-bottom));
-  padding-bottom: var(--safe-area-bottom);
+  padding: 0 var(--safe-area-right) var(--safe-area-bottom) var(--safe-area-left);
   background: var(--color-surface);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -76,6 +78,7 @@
 
 .tab-bar-item.active {
   color: var(--color-accent);
+  font-weight: 600;
 }
 
 .tab-bar-item svg {

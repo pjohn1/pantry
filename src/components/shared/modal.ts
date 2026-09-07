@@ -1,4 +1,4 @@
-import { el, on } from '../../utils/dom';
+import { el, on, svgIcon } from '../../utils/dom';
 
 export interface ModalOptions {
   /**
@@ -8,6 +8,12 @@ export interface ModalOptions {
    * it here rather than watching the DOM for its own removal.
    */
   onClose?: () => void;
+  /**
+   * Asked before a backdrop tap dismisses the sheet. A one-handed grip puts
+   * the thumb near the edge of the screen, and the strip above a bottom sheet
+   * is a wide target for an accident that destroys a half-typed item.
+   */
+  confirmDiscard?: () => boolean;
 }
 
 const FOCUSABLE =
@@ -23,8 +29,13 @@ export function openModal(
   modal.setAttribute('aria-label', title);
 
   const header = el('div', { className: 'modal-header' });
-  const titleEl = el('h2', { className: 'modal-title' }, title);
-  const closeBtn = el('button', { className: 'modal-close', 'aria-label': 'Close' }, '×');
+  const titleEl = el('h2', { className: 'modal-title', tabindex: '-1' }, title);
+  const closeBtn = el('button', { className: 'modal-close', 'aria-label': 'Close' });
+  // Drawn, not typed: every other icon in the app is an inline SVG on the same
+  // 24px grid, and a multiplication sign is not one of them.
+  const closeIcon = svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>', 18);
+  closeIcon.setAttribute('aria-hidden', 'true');
+  closeBtn.appendChild(closeIcon);
   header.appendChild(titleEl);
   header.appendChild(closeBtn);
 
@@ -62,10 +73,19 @@ export function openModal(
     if (focusable.length === 0) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
+    const active = document.activeElement;
+
+    // Focus outside the sheet entirely — the case the first-and-last checks
+    // below cannot see, and the one that let Tab walk into the page behind.
+    if (!(active instanceof Node) || !modal.contains(active)) {
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+      return;
+    }
+    if (e.shiftKey && active === first) {
       e.preventDefault();
       last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
+    } else if (!e.shiftKey && active === last) {
       e.preventDefault();
       first.focus();
     }
@@ -85,7 +105,9 @@ export function openModal(
 
   on(closeBtn, 'click', close);
   on(overlay, 'click', (e) => {
-    if (e.target === overlay) close();
+    if (e.target !== overlay) return;
+    if (options.confirmDiscard && !options.confirmDiscard()) return;
+    close();
   });
   document.addEventListener('keydown', onKeydown);
   viewport?.addEventListener('resize', syncKeyboardInset);
@@ -95,4 +117,14 @@ export function openModal(
   buildBody(body, close);
 
   document.body.appendChild(overlay);
+
+  // Land inside the sheet. The body builder may focus its own first field
+  // (the item form does, once the keyboard settles); this covers every sheet
+  // that does not, which otherwise left focus on the trigger behind the
+  // backdrop with nothing announced.
+  requestAnimationFrame(() => {
+    if (closed) return;
+    if (document.activeElement instanceof Node && modal.contains(document.activeElement)) return;
+    titleEl.focus();
+  });
 }

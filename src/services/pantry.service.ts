@@ -1,6 +1,7 @@
 import { getDB } from '../db/database';
 import type { PantryItem, ItemCategory, GroceryListItem } from '../models/types';
 import { normalizeIngredientName } from '../utils/normalize';
+import { clearSnoozeByName } from './typical-order.service';
 import { emit } from '../utils/events';
 
 export async function getAllPantryItems(): Promise<PantryItem[]> {
@@ -8,57 +9,104 @@ export async function getAllPantryItems(): Promise<PantryItem[]> {
   return db.getAll('pantryItems');
 }
 
-export async function getPantryItemsByCategory(category: ItemCategory): Promise<PantryItem[]> {
+/** Uses the `by-normalizedName` index — the join key the whole app matches on. */
+export async function findPantryItemByName(
+  normalizedName: string,
+): Promise<PantryItem | null> {
   const db = await getDB();
-  return db.getAllFromIndex('pantryItems', 'by-category', category);
+  const match = await db.getFromIndex('pantryItems', 'by-normalizedName', normalizedName);
+  return match ?? null;
 }
 
-export async function addPantryItem(item: Omit<PantryItem, 'id' | 'normalizedName' | 'dateAdded'>): Promise<PantryItem> {
+/**
+ * Returns the existing row rather than inserting a second one under the same
+ * join key. Two "Milk" rows show one standing amount between them, emit the
+ * item onto the shopping list twice, and leave the second permanently marked
+ * out when the first is restocked.
+ */
+export async function addPantryItem(
+  item: Omit<PantryItem, 'id' | 'normalizedName' | 'dateAdded'>,
+): Promise<PantryItem> {
   const db = await getDB();
+  const normalizedName = normalizeIngredientName(item.name);
+
+  const existing = await db.getFromIndex('pantryItems', 'by-normalizedName', normalizedName);
+  if (existing) return existing;
+
   const newItem: PantryItem = {
     ...item,
     id: crypto.randomUUID(),
-    normalizedName: normalizeIngredientName(item.name),
+    normalizedName,
     dateAdded: Date.now(),
   };
   await db.put('pantryItems', newItem);
   return newItem;
 }
 
+/**
+ * Renaming recomputes the join key, so it can collide with another row exactly
+ * the way a duplicate add can. Refuses rather than silently creating one.
+ */
 export async function updatePantryItem(item: PantryItem): Promise<void> {
   const db = await getDB();
-  item.normalizedName = normalizeIngredientName(item.name);
+  const normalizedName = normalizeIngredientName(item.name);
+
+  if (normalizedName !== item.normalizedName) {
+    const clash = await db.getFromIndex('pantryItems', 'by-normalizedName', normalizedName);
+    if (clash && clash.id !== item.id) {
+      throw new Error(`You already have ${clash.name} in your pantry.`);
+    }
+  }
+
+  item.normalizedName = normalizedName;
   await db.put('pantryItems', item);
 }
 
+/**
+ * Also removes the shopping-list row this item put there. Without it, deleting
+ * something you are out of leaves a row on the list whose only documented
+ * recovery — untick it in the pantry — no longer exists.
+ */
 export async function deletePantryItem(id: string): Promise<void> {
   const db = await getDB();
-  await db.delete('pantryItems', id);
+  const grocery = await db.getAll('groceryList');
+  const linked = grocery.filter(g => g.sourcePantryId === id);
+
+  const tx = db.transaction(['pantryItems', 'groceryList'], 'readwrite');
+  await tx.objectStore('pantryItems').delete(id);
+  for (const g of linked) await tx.objectStore('groceryList').delete(g.id);
+  await tx.done;
+
+  emit('grocery-count', grocery.length - linked.length);
 }
 
 export async function restorePantryItem(item: PantryItem): Promise<void> {
   const db = await getDB();
   await db.put('pantryItems', item);
-}
-
-export async function getPantryNameSet(): Promise<Set<string>> {
-  const items = await getAllPantryItems();
-  return new Set(items.map(i => i.normalizedName));
+  // The row's own `isOut` decides whether it belongs back on the list.
+  if (item.isOut) await toggleOutTo(item.id, true);
 }
 
 export async function toggleOut(id: string): Promise<boolean> {
   const db = await getDB();
   const item = await db.get('pantryItems', id);
   if (!item) return false;
+  return toggleOutTo(id, !item.isOut);
+}
 
-  item.isOut = !item.isOut;
+async function toggleOutTo(id: string, isOut: boolean): Promise<boolean> {
+  const db = await getDB();
+  const item = await db.get('pantryItems', id);
+  if (!item) return false;
+
+  item.isOut = isOut;
   await db.put('pantryItems', item);
 
-  if (item.isOut) {
-    // Add to grocery list
-    const existing = await db.getAll('groceryList');
+  const existing = await db.getAll('groceryList');
+
+  if (isOut) {
     const alreadyOnList = existing.some(
-      (g: GroceryListItem) => g.sourcePantryId === id
+      (g: GroceryListItem) => g.sourcePantryId === id,
     );
     if (!alreadyOnList) {
       const groceryItem: GroceryListItem = {
@@ -75,8 +123,6 @@ export async function toggleOut(id: string): Promise<boolean> {
       await db.put('groceryList', groceryItem);
     }
   } else {
-    // Remove from grocery list
-    const existing = await db.getAll('groceryList');
     const tx = db.transaction('groceryList', 'readwrite');
     for (const g of existing) {
       if (g.sourcePantryId === id) {
@@ -86,11 +132,10 @@ export async function toggleOut(id: string): Promise<boolean> {
     await tx.done;
   }
 
-  // Update grocery badge count
   const allGrocery = await db.getAll('groceryList');
-  emit('grocery-count', allGrocery.filter(g => !g.checked).length);
+  emit('grocery-count', allGrocery.length);
 
-  return item.isOut;
+  return isOut;
 }
 
 export async function addPantryItemFromPurchase(
@@ -98,20 +143,20 @@ export async function addPantryItemFromPurchase(
 ): Promise<PantryItem> {
   const db = await getDB();
 
-  // Check if item already in pantry by normalized name
-  const existing = await db.getAll('pantryItems');
-  const match = existing.find(i => i.normalizedName === normalizedName);
+  // Buying it ends any snooze on the standing order: the cycle restarted.
+  await clearSnoozeByName(normalizedName);
+
+  const match = await db.getFromIndex('pantryItems', 'by-normalizedName', normalizedName);
 
   if (match) {
-    // Un-mark as out and update purchase date
     match.isOut = false;
     match.purchaseDate = Date.now();
-    match.quantity = quantity;
+    // `quantity` on a pantry row is reference information, not a tracked
+    // ledger (PRODUCT.md) — a purchase must not overwrite what it records.
     await db.put('pantryItems', match);
     return match;
   }
 
-  // Create new pantry item
   const newItem: PantryItem = {
     id: crypto.randomUUID(),
     name,

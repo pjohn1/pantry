@@ -18,13 +18,17 @@
   --kb-board: #d9d2c2;
   --kb-card: #f5efe0;
   --kb-card-edge: #c8bfa8;
+  /* A hairline between two pieces of stock is decoration; a stroke that is the
+     only thing telling you an empty box is a checkbox, or that a transparent
+     rectangle is a button, is the control itself. Those get their own darker
+     edge so they clear 3:1 against the ground they sit on. */
+  --kb-control-edge: #7c7361;
   --kb-ink: #1a1a17;
   --kb-ink-soft: #5f5a4e;
 
-  /* Signal inks. In a kanban system colour is a signal, never
-     decoration: green holds, amber reorders, red is a stockout. */
-  --kb-stocked: #245c33;
-  --kb-reorder: #7a4e00;
+  /* One signal ink. Depletion is binary, so a stockout is the only state
+     colour has to carry; the green-and-amber pair this once declared was
+     never wired to anything and had no state left to mean. */
   --kb-out: #a62a1f;
 
   --kb-toolbar-h: 52px;
@@ -39,10 +43,9 @@
     --kb-board: #0e0e10;
     --kb-card: #1e1d1a;
     --kb-card-edge: #35332c;
+    --kb-control-edge: #8a8577;
     --kb-ink: #f2eee2;
     --kb-ink-soft: #a8a294;
-    --kb-stocked: #57c97e;
-    --kb-reorder: #e8a33d;
     --kb-out: #ff6b57;
   }
 }
@@ -56,8 +59,13 @@
   background: var(--kb-board);
 }
 
+/* Room for the tab bar and for the dock floating above it, so the last row
+   can always be scrolled clear of the buttons rather than stranded under
+   them. `--kb-dock-h` is published by dock.ts and is 0 when there is no dock. */
 .kb-list-view {
-  padding-bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 12px);
+  padding-bottom: calc(
+    var(--tab-bar-height) + var(--safe-area-bottom) + 24px + var(--kb-dock-h, 0px) + 16px
+  );
   min-height: 100%;
   background: var(--kb-board);
   color: var(--kb-ink);
@@ -75,8 +83,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: calc(var(--safe-area-top) + var(--kb-toolbar-h));
-  padding: var(--safe-area-top) 12px 0;
+  min-height: calc(var(--safe-area-top) + var(--kb-toolbar-h));
+  padding: var(--safe-area-top) calc(12px + var(--safe-area-right)) 0 calc(12px + var(--safe-area-left));
   background: var(--kb-board);
   border-bottom: var(--kb-rule);
 }
@@ -86,7 +94,7 @@
   min-width: 0;
   height: 44px;
   padding: 0 12px;
-  border: var(--kb-rule);
+  border: 1px solid var(--kb-control-edge);
   border-radius: 8px;
   background: var(--kb-card);
   color: var(--kb-ink);
@@ -106,10 +114,18 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  border: var(--kb-rule);
+  border: 1px solid var(--kb-control-edge);
   border-radius: 8px;
   background: var(--kb-card);
   color: var(--kb-ink);
+}
+
+/* A camera that is already running is not a button you can press again, and
+   the shared `.btn:disabled` rule never matched this control — so a receipt
+   mid-scan looked exactly like one waiting to be started. */
+.kb-tool-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .kb-tool-btn svg {
@@ -141,6 +157,14 @@
 .kb-filter[aria-pressed='true'] {
   background: var(--kb-out);
   color: var(--kb-card);
+}
+
+/* Kept in place at zero rather than removed. A control that vanishes whenever
+   the pantry is whole never becomes a habit, and its disappearance resized the
+   search field under a thumb already reaching for it. */
+.kb-filter:disabled {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .kb-filter-n {
@@ -193,7 +217,7 @@
   align-items: center;
   width: 100%;
   min-height: 48px;
-  padding: 0 0 0 3px;
+  padding: 0 var(--safe-area-right) 0 calc(3px + var(--safe-area-left));
   border-bottom: var(--kb-rule);
   background: var(--kb-card);
   text-align: left;
@@ -223,7 +247,7 @@
 .kb-check-box {
   width: 24px;
   height: 24px;
-  border: 1.5px solid var(--kb-card-edge);
+  border: 1.5px solid var(--kb-control-edge);
   border-radius: 7px;
   background: var(--kb-card);
 }
@@ -247,13 +271,18 @@
   transform: rotate(-45deg);
 }
 
+/* 44px even on a single-line row. `.kb-row` centres its children, so this
+   never stretched to the row's 48px and the Pantry edit target measured 26px
+   — the one control in the list that missed the floor the rest of them hold. */
 .kb-row-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: flex-start;
   gap: 1px;
+  min-height: 44px;
   padding: 2px 4px 2px 0;
   background: none;
   border: none;
@@ -317,17 +346,12 @@
   flex: 1;
   min-height: 44px;
   padding: 0 16px;
-  border: 1.5px solid var(--kb-card-edge);
+  border: 1.5px solid var(--kb-control-edge);
   border-radius: 8px;
   background: transparent;
   color: var(--kb-ink);
   font-size: 15px;
   font-weight: 600;
-}
-
-.kb-btn--danger {
-  border-color: var(--kb-out);
-  color: var(--kb-out);
 }
 
 /* ── Empty, failed, loading ───────────────────────────────────── */
@@ -382,6 +406,16 @@
   outline-offset: -3px;
 }
 
+/* Inset by 3px so a ring on a full-bleed row cannot clip off-screen — which
+   also means it lands inside the control's own fill. On the two filled
+   controls in the world that made it invisible (ink on ink) or too faint, so
+   those flip to the stock colour. */
+.kb-add:focus-visible,
+.kb-filter[aria-pressed='true']:focus-visible,
+.kb-dock-btn--primary:focus-visible {
+  outline-color: var(--kb-card);
+}
+
 /* ── Wider screens ────────────────────────────────────────────────
    The phone is the design target, but an installed PWA lands on iPads
    too, and one card row stretched to 1200px stops reading as a card. */
@@ -403,4 +437,139 @@
 .kb-list-actions {
   display: flex;
   margin: 16px 12px 24px;
+}
+
+/* ── The dock ─────────────────────────────────────────────────────
+   Add, and on the shopping list the receipt camera, live in the bottom-right
+   corner rather than in the toolbar. Both usage scenes are one hand on a
+   phone — a cupboard door open, or a cart moving — and the top-right of a
+   6.7" screen is the one place a thumb cannot reach without regripping.
+   Search and the out filter stay up top: they are navigation, not action.
+
+   Built to The Floating Control Rule (layout.css), which is why this is the
+   only fixed element in the world and why every clause is spelled out here:
+   24px of clearance because iOS inflates the tab bar's hit region past its
+   box, z-index above the bar's 100, and a child of #app so the router
+   replacing its content element cannot take the dock with it. */
+.kb-dock {
+  position: fixed;
+  right: calc(12px + var(--safe-area-right));
+  bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 24px);
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kb-dock-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--kb-control-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+  color: var(--kb-ink);
+  /* The world's one outer shadow, and it is doing structural work rather than
+     decoration: this control floats over scrolling stock, so it needs to read
+     as above the page instead of punched into it. */
+  box-shadow: 0 2px 10px rgb(26 26 23 / 18%);
+}
+
+.kb-dock-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Add is the dock's primary verb, so it is the one inverted control here —
+   the same inversion `.kb-add` used in the toolbar. */
+.kb-dock-btn--primary {
+  border-color: var(--kb-ink);
+  background: var(--kb-ink);
+  color: var(--kb-card);
+}
+
+.kb-dock-btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.kb-dock-btn:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .kb-dock-btn {
+    box-shadow: 0 2px 10px rgb(0 0 0 / 55%);
+  }
+}
+
+/* ── Receipt review ───────────────────────────────────────────────
+   A receipt used to move a dozen rows between two stores with nothing on
+   screen and no way back. This is the sheet that turns it into a decision. */
+.kb-review-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--kb-card-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+  overflow: hidden;
+}
+
+.kb-review-row {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding-left: 3px;
+}
+
+.kb-review-row + .kb-review-row {
+  border-top: var(--kb-rule);
+}
+
+.kb-review-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 4px 12px 4px 0;
+  text-align: left;
+}
+
+.kb-review-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--kb-ink);
+}
+
+/* The line the matcher actually read. A fuzzy match the user can see is a
+   guess they can correct; one they cannot see is a corrupted row. */
+.kb-review-line {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--kb-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kb-review-head {
+  padding: 4px 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+}
+
+.kb-progress {
+  font-variant-numeric: tabular-nums;
+}
+
+/* How far through the trip you are. Nothing said this before: ticking a row
+   deleted it, so an interrupted shop resumed with no sense of progress. */
+.kb-list-note {
+  padding: 10px 12px 4px;
+  color: var(--kb-ink-soft);
+  font-size: 13px;
+  font-weight: 600;
 }

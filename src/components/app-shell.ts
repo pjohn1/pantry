@@ -1,5 +1,6 @@
 import { el } from '../utils/dom';
 import { createTabBar } from './tab-bar';
+import { reconcileGroceryList } from '../services/grocery.service';
 import { initRouter, registerRoute } from '../router';
 import { createPantryView } from './pantry/pantry-view';
 import { createGroceryView } from './grocery/grocery-view';
@@ -35,4 +36,9 @@ export function createApp(): void {
   app.insertBefore(tabBar, toastContainer);
 
   initRouter(content);
+
+  // The list is derived, so the badge cannot be read off storage before the
+  // derivation has run: a cold launch onto the Pantry tab used to show a count
+  // that was missing every standing-order item.
+  void reconcileGroceryList().catch(() => {});
 }

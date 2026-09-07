@@ -1,5 +1,8 @@
 import { getDB } from '../db/database';
 import type { PantryItem, TypicalOrderItem, GroceryListItem, InspoItem } from '../models/types';
+import { coerceCategory } from '../models/types';
+import { normalizeIngredientName } from '../utils/normalize';
+import { emit } from '../utils/events';
 
 /**
  * Version 2 drops the `recipes` key (recipe parsing was removed) and adds
@@ -73,10 +76,32 @@ export async function importData(json: string): Promise<void> {
     await store.clear();
     for (const row of list) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await store.put(row as any);
+      await store.put(repair(key, row) as any);
     }
   }
   await tx.done;
+
+  const remaining = await db.getAll('groceryList');
+  emit('grocery-count', remaining.length);
+}
+
+/**
+ * A backup is a hand-editable text file, and the two fields the whole app
+ * joins and groups on are exactly the two a hand edit gets wrong. An unknown
+ * category used to make a row render nowhere at all; an absent or stale
+ * `normalizedName` silently detaches it from its standing order.
+ */
+function repair(key: string, row: unknown): unknown {
+  if (typeof row !== 'object' || row === null) return row;
+  if (key === 'inspoItems') return row;
+
+  const item = row as Record<string, unknown>;
+  const name = typeof item.name === 'string' ? item.name : '';
+  return {
+    ...item,
+    category: coerceCategory(item.category),
+    normalizedName: name ? normalizeIngredientName(name) : item.normalizedName,
+  };
 }
 
 export async function clearAllData(): Promise<void> {
@@ -91,16 +116,38 @@ export async function clearAllData(): Promise<void> {
   const tx = db.transaction(stores, 'readwrite');
   for (const name of stores) await tx.objectStore(name).clear();
   await tx.done;
+
+  // Without this the tab badge keeps announcing the count of a list that no
+  // longer exists.
+  emit('grocery-count', 0);
 }
 
-export function downloadJson(data: string, filename: string): void {
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
+/**
+ * `a.download` is unreliable in an installed iOS PWA, and this is the only
+ * backup mechanism for a ledger that lives on one device — so the caller is
+ * told whether the browser will actually save the file rather than being left
+ * to report success either way. Web Share is offered first because in
+ * standalone mode it is the path that works.
+ */
+export async function saveJson(data: string, filename: string): Promise<'shared' | 'downloaded'> {
+  const file = new File([data], filename, { type: 'application/json' });
+
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename });
+    return 'shared';
+  }
+
   const a = document.createElement('a');
+  if (!('download' in a)) {
+    throw new Error('This browser can’t save files. Open Pantry in Safari and export from there.');
+  }
+
+  const url = URL.createObjectURL(file);
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  return 'downloaded';
 }

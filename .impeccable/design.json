@@ -1,46 +1,256 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-07T00:00:00Z",
+  "generatedAt": "2026-09-07T17:38:23Z",
   "title": "Design System: Pantry",
   "extensions": {
     "colorMeta": {
-      "kb-board": { "role": "neutral", "displayName": "Rack Board", "canonical": "#d9d2c2", "tonalRamp": ["#2a2620", "#453f34", "#5f584a", "#7a7160", "#948a76", "#afa48c", "#c9bda3", "#e4dcc9"] },
-      "kb-card": { "role": "neutral", "displayName": "Warm Card Stock", "canonical": "#f5efe0", "tonalRamp": ["#2b271d", "#463f2f", "#615842", "#7c7154", "#988a67", "#b3a57f", "#d3c8a9", "#f5efe0"] },
-      "kb-card-edge": { "role": "neutral", "displayName": "Printed Edge", "canonical": "#c8bfa8", "tonalRamp": ["#28241c", "#413b2e", "#5a5240", "#736952", "#8d8065", "#a7997c", "#c8bfa8", "#e6dfd0"] },
-      "kb-ink": { "role": "neutral", "displayName": "Card Ink", "canonical": "#1a1a17", "tonalRamp": ["#0d0d0b", "#1a1a17", "#33332d", "#4d4d44", "#66665a", "#808071", "#b3b3a4", "#e6e6dd"] },
-      "kb-ink-soft": { "role": "neutral", "displayName": "Soft Ink", "canonical": "#5f5a4e", "tonalRamp": ["#1a1815", "#2f2c26", "#454138", "#5f5a4e", "#7a7365", "#968e7d", "#b8b1a2", "#dbd6cb"] },
-      "kb-out": { "role": "primary", "displayName": "Signal Red (Out)", "canonical": "#a62a1f", "tonalRamp": ["#2e0b07", "#4c1310", "#6b1c16", "#8a231b", "#a62a1f", "#c84a3c", "#e08476", "#f4c3bb"] },
-      "kb-stocked": { "role": "secondary", "displayName": "Stocked Green", "canonical": "#245c33", "tonalRamp": ["#08170d", "#0f2c19", "#173f24", "#1d4d2b", "#245c33", "#3d8a52", "#6bb884", "#b3e2c2"] },
-      "kb-reorder": { "role": "tertiary", "displayName": "Reorder Amber", "canonical": "#7a4e00", "tonalRamp": ["#221500", "#3a2400", "#523300", "#664000", "#7a4e00", "#a86c00", "#dba13d", "#f2d69c"] },
-      "ios-accent": { "role": "primary", "displayName": "iOS System Blue (incumbent)", "canonical": "#0066ff", "tonalRamp": ["#001433", "#002966", "#003d99", "#0052cc", "#0066ff", "#3d8bff", "#7fb2ff", "#cce0ff"] },
-      "ios-bg": { "role": "neutral", "displayName": "iOS Grouped Field (incumbent)", "canonical": "#f5f5f7", "tonalRamp": ["#1c1c1e", "#2c2c2e", "#48484a", "#636366", "#8e8e93", "#c7c7cc", "#e5e5e7", "#f5f5f7"] },
-      "ios-surface": { "role": "neutral", "displayName": "iOS Card White (incumbent)", "canonical": "#ffffff", "tonalRamp": ["#1c1c1e", "#3a3a3c", "#545456", "#7c7c80", "#a1a1a6", "#c7c7cc", "#e5e5e7", "#ffffff"] },
-      "ios-danger": { "role": "primary", "displayName": "iOS System Red (incumbent)", "canonical": "#ff3b30", "tonalRamp": ["#330a08", "#661410", "#991e18", "#cc2f26", "#ff3b30", "#ff6b63", "#ff9c96", "#ffd1ce"] }
+      "kb-board": {
+        "role": "neutral",
+        "displayName": "Rack Board",
+        "canonical": "#d9d2c2",
+        "tonalRamp": [
+          "#2a2620",
+          "#453f34",
+          "#5f584a",
+          "#7a7160",
+          "#948a76",
+          "#afa48c",
+          "#c9bda3",
+          "#e4dcc9"
+        ]
+      },
+      "kb-card": {
+        "role": "neutral",
+        "displayName": "Warm Card Stock",
+        "canonical": "#f5efe0",
+        "tonalRamp": [
+          "#2b271d",
+          "#463f2f",
+          "#615842",
+          "#7c7154",
+          "#988a67",
+          "#b3a57f",
+          "#d3c8a9",
+          "#f5efe0"
+        ]
+      },
+      "kb-card-edge": {
+        "role": "neutral",
+        "displayName": "Printed Edge",
+        "canonical": "#c8bfa8",
+        "tonalRamp": [
+          "#28241c",
+          "#413b2e",
+          "#5a5240",
+          "#736952",
+          "#8d8065",
+          "#a7997c",
+          "#c8bfa8",
+          "#e6dfd0"
+        ]
+      },
+      "kb-control-edge": {
+        "role": "neutral",
+        "displayName": "Control Edge",
+        "canonical": "#7c7361",
+        "tonalRamp": [
+          "#191712",
+          "#2b271f",
+          "#3d382c",
+          "#4f493a",
+          "#635b49",
+          "#7c7361",
+          "#a09681",
+          "#c8bfa8"
+        ]
+      },
+      "kb-ink": {
+        "role": "neutral",
+        "displayName": "Card Ink",
+        "canonical": "#1a1a17",
+        "tonalRamp": [
+          "#0d0d0b",
+          "#1a1a17",
+          "#33332d",
+          "#4d4d44",
+          "#66665a",
+          "#808071",
+          "#b3b3a4",
+          "#e6e6dd"
+        ]
+      },
+      "kb-ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#5f5a4e",
+        "tonalRamp": [
+          "#1a1815",
+          "#2f2c26",
+          "#454138",
+          "#5f5a4e",
+          "#7a7365",
+          "#968e7d",
+          "#b8b1a2",
+          "#dbd6cb"
+        ]
+      },
+      "kb-out": {
+        "role": "primary",
+        "displayName": "Signal Red (Out)",
+        "canonical": "#a62a1f",
+        "tonalRamp": [
+          "#2e0b07",
+          "#4c1310",
+          "#6b1c16",
+          "#8a231b",
+          "#a62a1f",
+          "#c84a3c",
+          "#e08476",
+          "#f4c3bb"
+        ]
+      },
+      "ios-accent": {
+        "role": "primary",
+        "displayName": "iOS System Blue (incumbent)",
+        "canonical": "#0066ff",
+        "tonalRamp": [
+          "#001433",
+          "#002966",
+          "#003d99",
+          "#0052cc",
+          "#0066ff",
+          "#3d8bff",
+          "#7fb2ff",
+          "#cce0ff"
+        ]
+      },
+      "ios-bg": {
+        "role": "neutral",
+        "displayName": "iOS Grouped Field (incumbent)",
+        "canonical": "#f5f5f7",
+        "tonalRamp": [
+          "#1c1c1e",
+          "#2c2c2e",
+          "#48484a",
+          "#636366",
+          "#8e8e93",
+          "#c7c7cc",
+          "#e5e5e7",
+          "#f5f5f7"
+        ]
+      },
+      "ios-surface": {
+        "role": "neutral",
+        "displayName": "iOS Card White (incumbent)",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#1c1c1e",
+          "#3a3a3c",
+          "#545456",
+          "#7c7c80",
+          "#a1a1a6",
+          "#c7c7cc",
+          "#e5e5e7",
+          "#ffffff"
+        ]
+      },
+      "ios-danger": {
+        "role": "primary",
+        "displayName": "iOS System Red (incumbent)",
+        "canonical": "#ff3b30",
+        "tonalRamp": [
+          "#330a08",
+          "#661410",
+          "#991e18",
+          "#cc2f26",
+          "#ff3b30",
+          "#ff6b63",
+          "#ff9c96",
+          "#ffd1ce"
+        ]
+      }
     },
     "typographyMeta": {
-      "card-name": { "displayName": "Card Name", "purpose": "The item. The only sentence-case string on a card; clamps at two lines." },
-      "bin-tag": { "displayName": "Bin Tag", "purpose": "Sticky category label hanging over its rack; also toolbar and swipe-action words." },
-      "field-label": { "displayName": "Field Label", "purpose": "PAR / NO PAR, unit words, detail-row labels. Always uppercase, always soft ink." },
-      "stamp": { "displayName": "Stamp", "purpose": "The state word inside the bordered ink mark. Never filled." },
-      "numeral": { "displayName": "Numeral", "purpose": "The par value. Tabular, in the darkest ink, one step above its label." },
-      "body": { "displayName": "Body", "purpose": "Notice and empty-state copy only; there is no long-form text in the app." },
-      "field-input": { "displayName": "Field Input", "purpose": "Search and the baseline editor. 16px is an iOS zoom floor, not a taste choice." },
-      "ios-body": { "displayName": "iOS Body (incumbent)", "purpose": "Row names and button labels on un-propagated tabs." },
-      "ios-detail": { "displayName": "iOS Detail (incumbent)", "purpose": "Secondary row text and filter pills on un-propagated tabs." },
-      "ios-label": { "displayName": "iOS Field Label (incumbent)", "purpose": "Uppercase form labels above incumbent inputs." }
+      "card-name": {
+        "displayName": "Card Name",
+        "purpose": "The item. The only sentence-case string on a card; clamps at two lines."
+      },
+      "bin-tag": {
+        "displayName": "Bin Tag",
+        "purpose": "Sticky category label hanging over its rack; also toolbar and swipe-action words."
+      },
+      "field-label": {
+        "displayName": "Field Label",
+        "purpose": "PAR / NO PAR, unit words, detail-row labels. Always uppercase, always soft ink."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "The state word inside the bordered ink mark. Never filled."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "The par value. Tabular, in the darkest ink, one step above its label."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Notice and empty-state copy only; there is no long-form text in the app."
+      },
+      "field-input": {
+        "displayName": "Field Input",
+        "purpose": "Search and the baseline editor. 16px is an iOS zoom floor, not a taste choice."
+      },
+      "ios-body": {
+        "displayName": "iOS Body (incumbent)",
+        "purpose": "Row names and button labels on un-propagated tabs."
+      },
+      "ios-detail": {
+        "displayName": "iOS Detail (incumbent)",
+        "purpose": "Secondary row text and filter pills on un-propagated tabs."
+      },
+      "ios-label": {
+        "displayName": "iOS Field Label (incumbent)",
+        "purpose": "Uppercase form labels above incumbent inputs."
+      }
     },
     "shadows": [
-      { "name": "dock-lift", "value": "0 -6px 16px -8px rgb(0 0 0 / 0.35)", "purpose": "The only shadow in The Kanban Card: separates the fixed dock from the scrolling rack. Nothing else in the world casts." },
-      { "name": "pulled-edge", "value": "inset 3px 0 0 0 var(--kb-out)", "purpose": "Inset edge mark on a pulled card. An edge stamp, not lift." },
-      { "name": "ios-tab-chrome", "value": "backdrop-filter: saturate(180%) blur(20px)", "purpose": "Native iOS bottom-bar chrome, preserved deliberately in both worlds. Not a Kanban device." }
+      {
+        "name": "dock-lift",
+        "value": "0 -6px 16px -8px rgb(0 0 0 / 0.35)",
+        "purpose": "The only shadow in The Kanban Card: separates the fixed dock from the scrolling rack. Nothing else in the world casts."
+      },
+      {
+        "name": "pulled-edge",
+        "value": "inset 3px 0 0 0 var(--kb-out)",
+        "purpose": "Inset edge mark on a pulled card. An edge stamp, not lift."
+      },
+      {
+        "name": "ios-tab-chrome",
+        "value": "backdrop-filter: saturate(180%) blur(20px)",
+        "purpose": "Native iOS bottom-bar chrome, preserved deliberately in both worlds. Not a Kanban device."
+      }
     ],
     "motion": [
-      { "name": "swipe-snap", "value": "transform 0.18s cubic-bezier(0.22, 1, 0.36, 1)", "purpose": "Row snap open/closed after a 40% throw; suppressed while dragging." },
-      { "name": "press-ground", "value": "background 0.12s ease-out", "purpose": "Card press feedback: a ground shift only, no scale or translate." },
-      { "name": "skeleton-pulse", "value": "1.4s ease-in-out infinite (opacity 1 -> 0.45)", "purpose": "Loading rows while IndexedDB opens; a blank ledger reads as data loss." }
+      {
+        "name": "swipe-snap",
+        "value": "transform 0.18s cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Row snap open/closed after a 40% throw; suppressed while dragging."
+      },
+      {
+        "name": "press-ground",
+        "value": "background 0.12s ease-out",
+        "purpose": "Card press feedback: a ground shift only, no scale or translate."
+      },
+      {
+        "name": "skeleton-pulse",
+        "value": "1.4s ease-in-out infinite (opacity 1 -> 0.45)",
+        "purpose": "Loading rows while IndexedDB opens; a blank ledger reads as data loss."
+      }
     ],
     "breakpoints": [
-      { "name": "wide", "value": "640px" }
+      {
+        "name": "wide",
+        "value": "640px"
+      }
     ],
     "scope": {
       "kanban": "Pantry tab only — src/styles/world-kanban.css, scoped to .app-content[data-route='pantry'] and .pantry-view. This is the project's forward direction.",
@@ -153,19 +363,71 @@
       "Edge-to-edge rack: no floating panels, no inset cards, no elevation"
     ],
     "rules": [
-      { "name": "The Signal Ink Rule", "body": "Colour in The Kanban Card is a signal or it does not appear. Stocked green, reorder amber and out red mean exactly one thing each; nothing in the world is coloured to look nice, to brand a surface, or to distinguish a section. If a new element cannot name which signal it carries, it is ink, soft ink, or stock.", "section": "colors" },
-      { "name": "The Stock, Not Tint Rule", "body": "Dark mode changes the card stock and the board, then re-picks the signal inks to hold on that stock. Never derive a dark palette by tinting, dimming, or overlaying the light values.", "section": "colors" },
-      { "name": "The Own-Ground Rule", "body": "Every text colour clears AA-normal against the ground it actually sits on, in both themes — verified in the shipped build: ink 15.20:1 / 14.53:1, soft ink 5.98 / 6.63, out 6.16 / 6.01, reorder 6.27 / 7.82, stocked 6.90 / 8.08. A colour whose only viable form is white-on-fill does not enter this system; the design it replaced measured 2.20:1 on filled state buttons.", "section": "colors" },
-      { "name": "The Binary Depletion Rule", "body": "Status colour is derived from isOut alone, never from a quantity. A par number on a card is reference information rendered in ink and soft ink; it never drives a signal colour, a progress meter, or a gradient.", "section": "colors" },
-      { "name": "The Fixed Track Rule", "body": "Micro-labels and their numbers sit on a fixed grid (56px 22px auto), so the label and the number occupy a constant x on every row — measured at x=33 with a right edge of 115 across all rows in the shipped build. tabular-nums alone is insufficient: it locks glyph advance, not column origin. Any new row-level field set uses a grid, not inline flow.", "section": "typography" },
-      { "name": "The Caps-For-Everything-But-The-Name Rule", "body": "In The Kanban Card, the item name is the only sentence-case string on a card. Labels, states, counts, and button words are uppercase and tracked. Never introduce a sentence-case secondary line to a card row.", "section": "typography" },
-      { "name": "The 16px Field Floor Rule", "body": "Any focusable text or number input is at least 16px.", "section": "typography" },
-      { "name": "The Edge-to-Edge Rack Rule", "body": "The card grid is the composition, not content inside a panel. Cards span the full viewport width and are separated by hairlines; never inset the rack, never round the rack, never float a card.", "section": "layout" },
-      { "name": "The Thumb-Zone Camera Rule", "body": "The dominant primary action in a one-handed view is the camera, and it lives in the fixed dock above the tab bar. Typing is the smaller neighbouring affordance.", "section": "layout" },
-      { "name": "The Flat Stock Rule", "body": "Surfaces do not lift. Depth is expressed by stock value (board to card to tag) and by 1px card-edge rules. A new Pantry-world element that needs to feel separate changes its ground or gains a rule; it does not gain a shadow.", "section": "elevation" },
-      { "name": "The Opaque Chrome Rule", "body": "Sticky and fixed chrome inside The Kanban Card is painted with the solid board colour. Translucency was tried on the dock and rejected: text ghosting through a rail reads as a rendering defect, not as material.", "section": "elevation" },
-      { "name": "The One Radius Rule", "body": "Everything in The Kanban Card that has a corner has a 2px corner. Full-bleed stock has none. There is no radius scale in this world; a pill, a capsule, or a 12px card belongs to the incumbent system.", "section": "shapes" },
-      { "name": "The Stamp-Is-Rotated Rule", "body": "State marks sit off-axis by 1-2 degrees. Nothing else in the world rotates.", "section": "shapes" }
+      {
+        "name": "The Signal Ink Rule",
+        "body": "Colour in The Kanban Card is a signal or it does not appear. Stocked green, reorder amber and out red mean exactly one thing each; nothing in the world is coloured to look nice, to brand a surface, or to distinguish a section. If a new element cannot name which signal it carries, it is ink, soft ink, or stock.",
+        "section": "colors"
+      },
+      {
+        "name": "The Stock, Not Tint Rule",
+        "body": "Dark mode changes the card stock and the board, then re-picks the signal inks to hold on that stock. Never derive a dark palette by tinting, dimming, or overlaying the light values.",
+        "section": "colors"
+      },
+      {
+        "name": "The Own-Ground Rule",
+        "body": "Every text colour clears AA-normal against the ground it actually sits on, in both themes — verified in the shipped build: ink 15.20:1 / 14.53:1, soft ink 5.98 / 6.63, out 6.16 / 6.01, reorder 6.27 / 7.82, stocked 6.90 / 8.08. A colour whose only viable form is white-on-fill does not enter this system; the design it replaced measured 2.20:1 on filled state buttons.",
+        "section": "colors"
+      },
+      {
+        "name": "The Binary Depletion Rule",
+        "body": "Status colour is derived from isOut alone, never from a quantity. A par number on a card is reference information rendered in ink and soft ink; it never drives a signal colour, a progress meter, or a gradient.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Track Rule",
+        "body": "Micro-labels and their numbers sit on a fixed grid (56px 22px auto), so the label and the number occupy a constant x on every row — measured at x=33 with a right edge of 115 across all rows in the shipped build. tabular-nums alone is insufficient: it locks glyph advance, not column origin. Any new row-level field set uses a grid, not inline flow.",
+        "section": "typography"
+      },
+      {
+        "name": "The Caps-For-Everything-But-The-Name Rule",
+        "body": "In The Kanban Card, the item name is the only sentence-case string on a card. Labels, states, counts, and button words are uppercase and tracked. Never introduce a sentence-case secondary line to a card row.",
+        "section": "typography"
+      },
+      {
+        "name": "The 16px Field Floor Rule",
+        "body": "Any focusable text or number input is at least 16px.",
+        "section": "typography"
+      },
+      {
+        "name": "The Edge-to-Edge Rack Rule",
+        "body": "The card grid is the composition, not content inside a panel. Cards span the full viewport width and are separated by hairlines; never inset the rack, never round the rack, never float a card.",
+        "section": "layout"
+      },
+      {
+        "name": "The Thumb-Zone Camera Rule",
+        "body": "The dominant primary action in a one-handed view is the camera, and it lives in the fixed dock above the tab bar. Typing is the smaller neighbouring affordance.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Stock Rule",
+        "body": "Surfaces do not lift. Depth is expressed by stock value (board to card to tag) and by 1px card-edge rules. A new Pantry-world element that needs to feel separate changes its ground or gains a rule; it does not gain a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Opaque Chrome Rule",
+        "body": "Sticky and fixed chrome inside The Kanban Card is painted with the solid board colour. Translucency was tried on the dock and rejected: text ghosting through a rail reads as a rendering defect, not as material.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Radius Rule",
+        "body": "Everything in The Kanban Card that has a corner has a 2px corner. Full-bleed stock has none. There is no radius scale in this world; a pill, a capsule, or a 12px card belongs to the incumbent system.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Stamp-Is-Rotated Rule",
+        "body": "State marks sit off-axis by 1-2 degrees. Nothing else in the world rotates.",
+        "section": "shapes"
+      }
     ],
     "dos": [
       "Do build new Pantry-tab surfaces from --kb-* tokens only, and give any new view that needs its own gutters a data-route opt-out rather than fighting .app-content's padding.",

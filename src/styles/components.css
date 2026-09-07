@@ -31,16 +31,6 @@
   color: #fff;
 }
 
-.btn-success {
-  background: var(--color-success);
-  color: #fff;
-}
-
-.btn-warning {
-  background: var(--color-warning);
-  color: #fff;
-}
-
 .btn-sm {
   padding: 5px 10px;
   font-size: 13px;
@@ -49,29 +39,6 @@
 }
 
 .btn-block { width: 100%; }
-
-/* FAB */
-.fab {
-  position: fixed;
-  /* 24px, not 16: see The Floating Control Rule in layout.css. */
-  bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 24px);
-  right: 16px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 12px rgba(0,102,255,0.3);
-  z-index: 120;
-  font-size: 24px;
-  font-weight: 300;
-  line-height: 1;
-}
-
-.fab:active { transform: scale(0.92); }
 
 /* Inputs */
 .input {
@@ -95,12 +62,14 @@
   gap: 4px;
 }
 
+/* Sentence case on the 13px floor. Tracked capitals are the signage voice the
+   list views were rebuilt to remove, and this label renders inside the sheet
+   both of them open. */
 .input-group label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   padding-left: 2px;
 }
 
@@ -122,10 +91,19 @@
   min-height: 44px;
   color: var(--color-text);
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%2386868b' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  /* The colour has to be baked in — a data-URI SVG is its own document, so
+     `currentColor` there resolves to nothing. The dark counterpart is in the
+     media query below; the old single value never adapted at all. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%235f5a4e' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 28px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23a8a294' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
+  }
 }
 
 /* Item list */
@@ -186,7 +164,11 @@
 .filter-pills::-webkit-scrollbar { display: none; }
 
 .filter-pill {
-  padding: 5px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0.5px solid var(--color-border);
   border-radius: var(--radius-full);
   font-size: 13px;
   font-weight: 500;
@@ -197,70 +179,11 @@
   transition: all 0.1s;
 }
 
+.filter-pill[aria-pressed='true'],
 .filter-pill.active {
   background: var(--color-accent);
-  color: #fff;
-}
-
-/* Checkbox */
-.checkbox {
-  width: 22px;
-  height: 22px;
-  border: 1.5px solid var(--color-checked);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.1s;
-}
-
-.checkbox.checked {
-  background: var(--color-accent);
   border-color: var(--color-accent);
-}
-
-.checkbox.checked::after {
-  content: '';
-  width: 10px;
-  height: 5px;
-  border-left: 1.5px solid #fff;
-  border-bottom: 1.5px solid #fff;
-  transform: rotate(-45deg) translateY(-1px);
-}
-
-.item-row.checked .item-row-name {
-  text-decoration: line-through;
-  color: var(--color-checked);
-}
-
-/* Search bar */
-.search-bar {
-  position: relative;
-  margin-bottom: 12px;
-}
-
-.search-bar .input {
-  padding-left: 36px;
-  background: var(--color-surface);
-  border: none;
-}
-
-.search-bar svg {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: var(--color-text-secondary);
-}
-
-/* Card */
-.card {
-  background: var(--color-surface);
-  border-radius: var(--radius-md);
-  padding: var(--spacing-md);
+  color: #fff;
 }
 
 /* Modal */
@@ -275,10 +198,14 @@
   animation: fadeIn 0.12s ease-out;
 }
 
+/* Warm Paper. This sheet is not a surface the user visits — it is a modal
+   child of the two list views, opened on every write, and it used to leave
+   their world for iOS default white the moment you tapped +. */
 .modal {
   overscroll-behavior: contain;
-  background: var(--color-bg);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--kb-board);
+  color: var(--kb-ink);
+  border-radius: 8px 8px 0 0;
   padding: var(--spacing-lg);
   padding-bottom: calc(var(--spacing-lg) + var(--safe-area-bottom));
   width: 100%;
@@ -297,20 +224,81 @@
 }
 
 .modal-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
+/* 44px target around a 28px mark: the visible box stays quiet, the tap does
+   not. This control appears in every sheet, including the barcode scanner
+   used one-handed in an aisle. */
 .modal-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--color-surface-elevated);
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px -8px 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  color: var(--color-text-secondary);
+  background: none;
+  color: var(--kb-ink-soft);
+}
+
+.modal-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal .input-group label {
+  color: var(--kb-ink-soft);
+}
+
+.modal .input,
+.modal .select {
+  border: 1px solid var(--kb-control-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+  color: var(--kb-ink);
+}
+
+.modal .input:focus,
+.modal .select:focus {
+  border-color: var(--kb-ink);
+}
+
+.modal .btn-primary {
+  background: var(--kb-ink);
+  color: var(--kb-card);
+  border-radius: 8px;
+}
+
+.modal .btn-secondary {
+  background: var(--kb-card);
+  border: 1px solid var(--kb-control-edge);
+  border-radius: 8px;
+  color: var(--kb-ink);
+}
+
+.modal .btn-danger {
+  border-radius: 8px;
+}
+
+.modal .field-error {
+  color: var(--kb-out);
+}
+
+.modal .field-hint,
+.modal p {
+  color: var(--kb-ink-soft);
+}
+
+.modal :focus-visible {
+  outline: 2px solid var(--kb-ink);
+  outline-offset: 2px;
+}
+
+.modal .btn-primary:focus-visible {
+  outline-color: var(--kb-card);
+  outline-offset: -3px;
 }
 
 .modal-body {
@@ -319,33 +307,62 @@
   gap: var(--spacing-md);
 }
 
-/* Toast */
+/* Toast — above the tab bar, not under the status bar.
+   Anchored to the thumb for two reasons. Undo and Retry live in here, and they
+   were the least reachable controls in the app on the shortest timer; and at
+   the top the pill sat directly on top of the search field and the add button
+   for the whole of its life. Built to The Floating Control Rule: >= 24px
+   clearance, and already a child of #app. */
 .toast-container {
   position: fixed;
-  top: calc(var(--safe-area-top) + 8px);
-  left: var(--spacing-md);
-  right: var(--spacing-md);
-  z-index: 300;
+  /* Above the dock, not across it: a confirmation must never cover the button
+     that produced it, and Undo lives in here. */
+  bottom: calc(
+    var(--tab-bar-height) + var(--safe-area-bottom) + 24px + var(--kb-dock-h, 0px) + 10px
+  );
+  left: calc(var(--spacing-md) + var(--safe-area-left));
+  right: calc(var(--spacing-md) + var(--safe-area-right));
+  z-index: 120;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  justify-content: center;
+  /* The container never takes a tap; only the action inside it does. */
   pointer-events: none;
 }
 
+/* Ink on stock, in every state. A filled green confirmation is decoration —
+   and at 2.2:1 it was also unreadable. The words carry the state. */
 .toast {
-  background: var(--color-text);
-  color: var(--color-bg);
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  padding: 0 4px 0 16px;
+  min-height: 44px;
+  border-radius: 8px;
+  background: var(--kb-ink);
+  color: var(--kb-card);
+  font-size: 15px;
   font-weight: 500;
-  text-align: center;
-  animation: slideDown 0.15s ease-out;
-  pointer-events: auto;
+  animation: toastRise 0.18s cubic-bezier(0.2, 0.9, 0.3, 1);
+  transition: opacity 0.3s;
 }
 
-.toast.success { background: var(--color-success); color: #fff; }
-.toast.error { background: var(--color-danger); color: #fff; }
+.toast:not(.has-undo) {
+  padding-right: 16px;
+}
+
+.toast-message {
+  min-width: 0;
+}
+
+.toast.error {
+  background: var(--kb-out);
+  color: var(--kb-card);
+}
+
+.toast.is-leaving {
+  opacity: 0;
+}
 
 /* Section */
 .section-header {
@@ -360,12 +377,8 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0;
 }
-
-.section-group { margin-bottom: 20px; }
-.section-group:last-child { margin-bottom: 0; }
 
 /* Empty state */
 .empty-state {
@@ -384,17 +397,6 @@
   line-height: 1.4;
 }
 
-/* Summary bar */
-.summary-bar {
-  padding: 8px 12px;
-  background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  margin-bottom: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-}
-
 /* Tab badge */
 .tab-bar-item {
   position: relative;
@@ -409,49 +411,14 @@
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--color-danger);
-  color: #fff;
+  background: var(--color-badge);
+  color: var(--color-badge-ink);
   font-size: 10px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-}
-
-/* Quantity stepper */
-.qty-stepper {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 2px;
-}
-
-.qty-stepper-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: var(--color-surface-elevated);
-  border: 0.5px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-accent);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.qty-stepper-btn:active {
-  background: var(--color-border);
-}
-
-.qty-stepper-val {
-  min-width: 32px;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-text-secondary);
 }
 
 /* View transition */
@@ -478,9 +445,9 @@
   to { transform: translateY(0); }
 }
 
-@keyframes slideDown {
-  from { transform: translateY(-12px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+@keyframes toastRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Inspo grid */
@@ -498,7 +465,9 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 3px;
-  padding: 3px 3px calc(var(--tab-bar-height) + var(--safe-area-bottom) + 72px);
+  padding: 3px 3px calc(
+    var(--tab-bar-height) + var(--safe-area-bottom) + 24px + var(--kb-dock-h, 0px) + 16px
+  );
 }
 
 /* Card = full-bleed thumbnail with gradient overlay footer */
@@ -580,8 +549,13 @@
 .inspo-footer-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 0;
+  margin: -8px -8px -4px 0;
   pointer-events: auto;
+}
+
+.inspo-icon-btn {
+  position: relative;
 }
 
 .inspo-footer-spacer { flex: 1; }
@@ -597,23 +571,35 @@
   white-space: nowrap;
 }
 
+/* A 28px mark inside a 44px target. Two of these sit side by side on a photo;
+   at 28px they were both under the floor and adjacent to each other. */
 .inspo-icon-btn {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.4);
+  background: none;
   color: #fff;
   flex-shrink: 0;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
-.inspo-icon-btn svg { width: 14px; height: 14px; }
+.inspo-icon-btn::before {
+  content: '';
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+}
+
+/* Both marks are white. Colour was carrying nothing here that the glyph and
+   the label do not — and the delete now has an undo behind it. */
+.inspo-icon-btn svg { width: 15px; height: 15px; position: relative; }
 .inspo-icon-btn:active { opacity: 0.5; }
-.inspo-icon-btn-danger { color: #ff6b6b; }
 
 .inspo-empty {
   grid-column: 1 / -1;
@@ -634,9 +620,10 @@
 }
 
 .inspo-modal-tab {
+  min-height: 44px;
   flex: 1;
   padding: 7px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   border-radius: calc(var(--radius-sm) - 2px);
   color: var(--color-text-secondary);
@@ -679,21 +666,6 @@
   object-fit: contain;
 }
 
-.inspo-image-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
 
 /* Meal-category pills. Named `recipe-*` for historical reasons; they are
    owned by the Saved tab (inspo-view.ts). Recipe parsing has been removed;
@@ -724,37 +696,28 @@ html, body {
   height: 100dvh;
 }
 
-/* FAB clearance */
-.has-fab { padding-bottom: 68px; }
-.list-container { min-height: 80px; }
-
-/* Out of stock */
-.item-row.item-out {
-  background: rgba(255, 59, 48, 0.06);
-}
-
-.item-row.item-out .item-row-name {
-  color: var(--color-danger);
-}
-
-/* Toast undo */
-.toast.has-undo {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  text-align: left;
-  gap: 12px;
-}
-
+/* The one thing in the toast that is a control, so the one thing that takes a
+   tap — and at a real 44px, not the 19px underline it used to be. */
 .toast-undo-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
   background: none;
+  border: none;
+  border-radius: 8px;
   color: inherit;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   text-decoration: underline;
-  opacity: 0.9;
-  flex-shrink: 0;
-  padding: 0;
+  text-underline-offset: 3px;
+  pointer-events: auto;
+}
+
+.toast-undo-btn:focus-visible {
+  outline: 2px solid var(--kb-card);
+  outline-offset: -3px;
 }
 
 /* Barcode scanner */
@@ -792,7 +755,7 @@ html, body {
 }
 
 .barcode-status {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-text-secondary);
   text-align: center;
   padding: 4px 0;
@@ -808,32 +771,101 @@ html, body {
   line-height: 1.5;
 }
 
-/* Info sheet */
-.info-sheet {
+/* The one control in the sheet that changes what an item *means*, so it gets
+   its own block and its own words. This used to be a pre-filled number in a
+   row of numbers, which made every add and every edit declare a permanent
+   staple by accident. */
+.staple-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 12px;
+  border: 1px solid var(--kb-control-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+  color: var(--kb-ink);
+  text-align: left;
+}
+
+.staple-toggle-mark {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border: 1.5px solid var(--kb-control-edge);
+  border-radius: 7px;
+  background: var(--kb-card);
+}
+
+.staple-toggle[aria-pressed='true'] .staple-toggle-mark {
+  position: relative;
+  border-color: var(--kb-ink);
+  background: var(--kb-ink);
+}
+
+/* The same tick the list rows draw, so one glyph means one thing app-wide. */
+.staple-toggle[aria-pressed='true'] .staple-toggle-mark::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  width: 9px;
+  height: 5px;
+  border: 2px solid var(--kb-card);
+  border-top: none;
+  border-right: none;
+  transform: rotate(-45deg);
+}
+
+.staple-toggle-copy {
   display: flex;
   flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.info-row {
-  display: flex;
-  justify-content: space-between;
+.staple-toggle-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.staple-toggle-hint {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--kb-ink-soft);
+}
+
+/* Naming the clash is half the message; the other half is the way out. */
+.field-error-action {
+  display: inline-flex;
   align-items: center;
-  padding: 12px 0;
+  min-height: 44px;
+  margin-left: 10px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
-.info-row + .info-row {
-  border-top: 0.5px solid var(--color-border);
-}
-
-.info-label {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-
-.info-value {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-text);
+/* Available to a screen reader, absent from the layout. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ── Resilience states ───────────────────────────────────────── */
@@ -845,33 +877,8 @@ html, body {
   color: var(--color-danger);
 }
 
-/* A blank list on first paint reads as "your data is gone" in a ledger app.
-   These stand in for rows while storage opens. */
-.skeleton-row {
-  align-items: center;
-}
-
-.skeleton-line {
-  width: 60%;
-  height: 15px;
-  border-radius: var(--radius-sm);
-  background: var(--color-border);
-  animation: skeletonPulse 1.4s ease-in-out infinite;
-}
-
-.skeleton-row:nth-child(2) .skeleton-line { width: 45%; }
-.skeleton-row:nth-child(3) .skeleton-line { width: 70%; }
-.skeleton-row:nth-child(4) .skeleton-line { width: 38%; }
-.skeleton-row:nth-child(5) .skeleton-line { width: 55%; }
-
-@keyframes skeletonPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
-}
-
 /* A control that cannot act must not look like it can. */
-.btn:disabled,
-.qty-stepper-btn:disabled {
+.btn:disabled {
   opacity: 0.35;
   pointer-events: none;
 }
@@ -911,5 +918,83 @@ textarea:focus-visible {
   margin-top: 6px;
   font-size: 13px;
   line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+/* ── Settings ─────────────────────────────────────────────────────
+   Incumbent system, patched in its own vocabulary. What changed is structure:
+   the standing order is grouped by the same categories the two list views
+   use, and the section notes say what each block is for. */
+.settings-section {
+  margin-top: 32px;
+}
+
+.section-note {
+  margin: 0 4px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}
+
+.settings-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-group-head {
+  margin: 16px 4px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.settings-group-head:first-child {
+  margin-top: 0;
+}
+
+/* The Saved tab's cards are the one place a thumbnail is the content, so its
+   grid needs the dock's clearance rather than the tab bar's. */
+.inspo-preview-img {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 8px;
+}
+
+/* A photo is the card's primary action; it is a button now, not a div. */
+.inspo-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+}
+
+/* The standing-order row: content is the edit target, one trailing trash is
+   the delete — the same three-part row the two list views use. */
+.item-row-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 44px;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  color: inherit;
+}
+
+.item-row-del {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
+  background: none;
+  border: none;
   color: var(--color-text-secondary);
 }

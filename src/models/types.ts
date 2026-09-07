@@ -34,6 +34,20 @@ export const CATEGORY_LABELS: Record<ItemCategory, string> = {
   other: 'Other',
 };
 
+const CATEGORY_SET = new Set<string>(CATEGORIES);
+
+/**
+ * Anything outside the enum becomes `other`. Both list views group by the
+ * categories they actually find, but a row carrying a value no label exists
+ * for would render under a blank heading — and an imported backup is free to
+ * carry one. Coerce at the door instead.
+ */
+export function coerceCategory(value: unknown): ItemCategory {
+  return typeof value === 'string' && CATEGORY_SET.has(value)
+    ? (value as ItemCategory)
+    : 'other';
+}
+
 export const UNITS = [
   'count', 'cups', 'tbsp', 'tsp', 'oz', 'g', 'kg', 'lb', 'ml', 'l',
   'cloves', 'slices', 'pieces', 'bunch', 'head', 'can', 'bag', 'box', 'jar', 'package',
@@ -58,6 +72,13 @@ export interface TypicalOrderItem {
   quantity: number;
   unit: string;
   category: ItemCategory;
+  /**
+   * Set when the user deletes this item's auto-generated row off the shopping
+   * list. The list rebuilds itself on every open, so without this a deleted
+   * row would reappear immediately. Cleared the next time the item is bought,
+   * which is what makes it a snooze rather than an off switch.
+   */
+  snoozed?: boolean;
 }
 
 /** `recipe` is legacy: recipe parsing was removed and nothing writes it now.

@@ -10,6 +10,23 @@ const DURATION: Record<ToastType, number> = {
 
 const ACTION_DURATION = 5000;
 
+/**
+ * One toast at a time.
+ *
+ * Working down a shopping list is a burst of eight or ten writes in a few
+ * seconds, and each used to append its own pill — a growing stack that sat on
+ * top of the controls. Reusing a single node means the last thing that
+ * happened is always the thing on screen, and the strip never grows.
+ */
+let live: { el: HTMLElement; timer: number } | null = null;
+
+function clearLive(remove: boolean): void {
+  if (!live) return;
+  window.clearTimeout(live.timer);
+  if (remove) live.el.remove();
+  live = null;
+}
+
 export function showToast(
   message: string,
   type: ToastType = 'info',
@@ -19,39 +36,43 @@ export function showToast(
   const container = document.getElementById('toast-container');
   if (!container) return;
 
+  clearLive(true);
+
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
 
+  const msgSpan = document.createElement('span');
+  msgSpan.className = 'toast-message';
+  msgSpan.textContent = message;
+  toast.appendChild(msgSpan);
+
   function dismiss() {
-    toast.style.transition = 'opacity 0.3s';
-    toast.style.opacity = '0';
+    if (!live || live.el !== toast) return;
+    live = null;
+    toast.classList.add('is-leaving');
     setTimeout(() => toast.remove(), 300);
   }
 
   if (onAction) {
     toast.classList.add('has-undo');
-    const msgSpan = document.createElement('span');
-    msgSpan.textContent = message;
-    toast.appendChild(msgSpan);
 
     const actionBtn = document.createElement('button');
     actionBtn.className = 'toast-undo-btn';
     actionBtn.textContent = actionLabel;
     toast.appendChild(actionBtn);
 
-    // An action worth offering is worth time to reach, and a one-handed reach
-    // across the screen is slower than a glance.
-    const timer = setTimeout(dismiss, ACTION_DURATION);
-
     actionBtn.addEventListener('click', () => {
-      clearTimeout(timer);
+      clearLive(false);
       toast.remove();
       onAction();
     });
-  } else {
-    toast.textContent = message;
-    setTimeout(dismiss, DURATION[type]);
   }
 
   container.appendChild(toast);
+
+  // An action worth offering is worth time to reach.
+  live = {
+    el: toast,
+    timer: window.setTimeout(dismiss, onAction ? ACTION_DURATION : DURATION[type]),
+  };
 }

@@ -7,14 +7,24 @@ function detectPlatform(url: string): InspoPlatform {
   return 'other';
 }
 
+/**
+ * A thumbnail is decoration; saving the link is the job. Both endpoints are
+ * cross-origin and one of them wants a token, so this fails routinely — and
+ * with no timeout it used to leave "Saving…" on screen indefinitely in a
+ * dead zone. Bounded, and a failure is just a placeholder card.
+ */
 async function fetchOembedThumbnail(oembedUrl: string): Promise<string> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 3000);
   try {
-    const res = await fetch(oembedUrl);
+    const res = await fetch(oembedUrl, { signal: abort.signal });
     if (!res.ok) return '';
     const data = await res.json();
     return (data.thumbnail_url as string) || '';
   } catch {
     return '';
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -80,6 +90,12 @@ export async function getAllInspoItems(): Promise<InspoItem[]> {
 export async function deleteInspoItem(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('inspoItems', id);
+}
+
+/** Backs the undo on the Saved tab, which used to ask a blocking confirm(). */
+export async function restoreInspoItem(item: InspoItem): Promise<void> {
+  const db = await getDB();
+  await db.put('inspoItems', item);
 }
 
 export async function updateInspoItem(

@@ -27,18 +27,6 @@ export function on<K extends keyof HTMLElementEventMap>(
   element.addEventListener(event, handler);
 }
 
-export function clear(element: HTMLElement): void {
-  element.innerHTML = '';
-}
-
-export function show(element: HTMLElement): void {
-  element.style.display = '';
-}
-
-export function hide(element: HTMLElement): void {
-  element.style.display = 'none';
-}
-
 export function svgIcon(path: string, size = 24): SVGElement {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('width', String(size));

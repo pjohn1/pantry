@@ -42,56 +42,127 @@ export function parseReceiptLines(rawLines: string[]): string[] {
   return results;
 }
 
+/**
+ * Whole-word alignment rather than raw containment.
+ *
+ * The old test asked whether either string contained the other, which made
+ * "milk" claim "oat milk", "almond milk" and "milk chocolate". A wrong match
+ * moved a row the user did not buy into the pantry and deleted it off the
+ * list, silently — the worst failure shape for a product whose success
+ * condition is that the ledger is true.
+ */
+function words(normalized: string): string[] {
+  return normalized.split(' ').filter(Boolean);
+}
+
 function namesMatch(receiptNorm: string, groceryNorm: string): boolean {
   if (receiptNorm === groceryNorm) return true;
 
-  // Direct substring containment
-  if (receiptNorm.includes(groceryNorm) || groceryNorm.includes(receiptNorm)) return true;
+  const receiptWords = words(receiptNorm);
+  const groceryWords = words(groceryNorm);
+  if (receiptWords.length === 0 || groceryWords.length === 0) return false;
 
-  // All meaningful words in grocery name appear in receipt name
-  const groceryWords = groceryNorm.split(' ').filter(w => w.length > 2);
-  if (groceryWords.length > 0 && groceryWords.every(w => receiptNorm.includes(w))) return true;
+  const receiptSet = new Set(receiptWords);
 
-  return false;
+  // Every word of the shorter name has to appear whole in the longer one. A
+  // one-word grocery name therefore no longer matches a two-word receipt line
+  // that merely happens to contain it as a modifier.
+  if (groceryWords.length <= receiptWords.length) {
+    if (!groceryWords.every(w => receiptSet.has(w))) return false;
+  } else {
+    const grocerySet = new Set(groceryWords);
+    if (!receiptWords.every(w => grocerySet.has(w))) return false;
+  }
+
+  // Single-word names have to be exact: "milk" and "oat milk" are different
+  // products, and only one of them is on the list.
+  return !(groceryWords.length === 1 && receiptWords.length > 1)
+    && !(receiptWords.length === 1 && groceryWords.length > 1);
 }
 
-export interface ReceiptProcessResult {
-  matched: GroceryListItem[];
-  totalReceiptItems: number;
+export interface ReceiptMatch {
+  item: GroceryListItem;
+  /** The receipt line that matched, so a guess is visible and correctable. */
+  line: string;
 }
 
-export async function processReceiptAgainstGroceryList(
+export interface ReceiptReview {
+  matched: ReceiptMatch[];
+  /** Lines that look like products but are on no list row. */
+  unmatched: string[];
+}
+
+/**
+ * Reads only. The receipt used to move a dozen rows between two stores the
+ * instant the photo finished, with nothing on screen and no way back; matching
+ * and applying are now two steps with the user's decision in between.
+ */
+export async function matchReceiptAgainstGroceryList(
   receiptItemNames: string[],
-): Promise<ReceiptProcessResult> {
+): Promise<ReceiptReview> {
   const db = await getDB();
   const groceryItems = await db.getAll('groceryList');
 
-  const normalizedReceipt = receiptItemNames.map(name => normalizeIngredientName(name));
+  const normalized = receiptItemNames.map(name => ({
+    line: name,
+    norm: normalizeIngredientName(name),
+  }));
 
-  const matched: GroceryListItem[] = [];
+  const matched: ReceiptMatch[] = [];
+  const claimed = new Set<string>();
 
   for (const grocery of groceryItems) {
-    const hit = normalizedReceipt.some(rNorm => namesMatch(rNorm, grocery.normalizedName));
-    if (hit) matched.push(grocery);
+    const hit = normalized.find(r => namesMatch(r.norm, grocery.normalizedName));
+    if (!hit) continue;
+    matched.push({ item: grocery, line: hit.line });
+    claimed.add(hit.line);
   }
 
-  // Add matched items to pantry and remove from grocery list
-  for (const item of matched) {
+  // Everything else you bought. PRODUCT.md promises "receipt photo → pantry
+  // population", and these lines used to be parsed and then thrown away.
+  const unmatched = normalized
+    .filter(r => !claimed.has(r.line) && r.norm.length >= 3)
+    .map(r => r.line);
+
+  return { matched, unmatched: dedupe(unmatched) };
+}
+
+function dedupe(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of lines) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+  }
+  return out;
+}
+
+/** Moves the rows the user confirmed, and only those. */
+export async function applyReceiptMatches(matches: ReceiptMatch[]): Promise<void> {
+  if (matches.length === 0) return;
+  const db = await getDB();
+
+  for (const { item } of matches) {
     await addPantryItemFromPurchase(
       item.name, item.normalizedName, item.quantity, item.unit, item.category,
     );
   }
 
-  if (matched.length > 0) {
-    const tx = db.transaction('groceryList', 'readwrite');
-    for (const item of matched) {
-      await tx.objectStore('groceryList').delete(item.id);
-    }
-    await tx.done;
+  const tx = db.transaction('groceryList', 'readwrite');
+  for (const { item } of matches) {
+    await tx.objectStore('groceryList').delete(item.id);
   }
+  await tx.done;
 
   const remaining = await db.getAll('groceryList');
-  emit('grocery-count', remaining.filter(i => !i.checked).length);
+  emit('grocery-count', remaining.length);
+}
 
-  return { matched, totalReceiptItems: receiptItemNames.length };
+/** For a receipt line that was never on the list but is now in the cupboard. */
+export async function addReceiptLineToPantry(line: string): Promise<void> {
+  await addPantryItemFromPurchase(
+    line, normalizeIngredientName(line), 1, 'count', 'other',
+  );
 }

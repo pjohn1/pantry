@@ -32,7 +32,7 @@ const TABS: Tab[] = [
 ];
 
 export function createTabBar(): HTMLElement {
-  const nav = el('nav', { className: 'tab-bar' });
+  const nav = el('nav', { className: 'tab-bar', 'aria-label': 'Sections' });
   let badgeEl: HTMLElement | null = null;
   let groceryCount = 0;
 
@@ -41,16 +41,20 @@ export function createTabBar(): HTMLElement {
     nav.innerHTML = '';
     for (const tab of TABS) {
       const isActive = current === tab.id;
+      // Selection was carried by hue alone: four buttons that announced
+      // identically and differed only in colour.
       const item = el('button', {
         className: `tab-bar-item${isActive ? ' active' : ''}`,
+        ...(isActive ? { 'aria-current': 'page' } : {}),
       });
-      item.appendChild(svgIcon(tab.icon));
+      const icon = svgIcon(tab.icon);
+      icon.setAttribute('aria-hidden', 'true');
+      item.appendChild(icon);
       item.appendChild(el('span', {}, tab.label));
 
       if (tab.id === 'grocery') {
         badgeEl = el('span', { className: 'tab-badge' });
-        badgeEl.textContent = String(groceryCount);
-        if (groceryCount === 0) badgeEl.style.display = 'none';
+        setBadge(badgeEl, groceryCount);
         item.appendChild(badgeEl);
       }
 
@@ -59,12 +63,16 @@ export function createTabBar(): HTMLElement {
     }
   }
 
+  function setBadge(node: HTMLElement, count: number) {
+    node.textContent = String(count);
+    node.hidden = count === 0;
+    // A bare numeral next to a tab label reads as part of it otherwise.
+    node.setAttribute('aria-label', `${count} item${count === 1 ? '' : 's'} to get`);
+  }
+
   function updateBadge(count: number) {
     groceryCount = count;
-    if (badgeEl) {
-      badgeEl.textContent = String(count);
-      badgeEl.style.display = count > 0 ? '' : 'none';
-    }
+    if (badgeEl) setBadge(badgeEl, count);
   }
 
   subscribe('grocery-count', (count: number) => updateBadge(count));
