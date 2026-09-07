@@ -3,3 +3,8 @@ dist
 *.local
 .env
 .env.*
+
+# Impeccable transient/machine-local state (kept: design.json, live/config.json, critique/)
+.impeccable/questions/
+.impeccable/live/roots.json
+.impeccable/live/sessions/

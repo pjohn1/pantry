@@ -1,39 +1,56 @@
-export function showToast(message: string, type: 'success' | 'error' | 'info' = 'info', onUndo?: () => void): void {
+type ToastType = 'success' | 'error' | 'info';
+
+// An error the user has to read and act on should not vanish at the same speed
+// as a confirmation they only need to glimpse.
+const DURATION: Record<ToastType, number> = {
+  success: 2500,
+  info: 2500,
+  error: 6000,
+};
+
+const ACTION_DURATION = 5000;
+
+export function showToast(
+  message: string,
+  type: ToastType = 'info',
+  onAction?: () => void,
+  actionLabel = 'Undo',
+): void {
   const container = document.getElementById('toast-container');
   if (!container) return;
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
 
-  if (onUndo) {
+  function dismiss() {
+    toast.style.transition = 'opacity 0.3s';
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }
+
+  if (onAction) {
     toast.classList.add('has-undo');
     const msgSpan = document.createElement('span');
     msgSpan.textContent = message;
     toast.appendChild(msgSpan);
 
-    const undoBtn = document.createElement('button');
-    undoBtn.className = 'toast-undo-btn';
-    undoBtn.textContent = 'Undo';
-    toast.appendChild(undoBtn);
+    const actionBtn = document.createElement('button');
+    actionBtn.className = 'toast-undo-btn';
+    actionBtn.textContent = actionLabel;
+    toast.appendChild(actionBtn);
 
-    const timer = setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.3s';
-      setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    // An action worth offering is worth time to reach, and a one-handed reach
+    // across the screen is slower than a glance.
+    const timer = setTimeout(dismiss, ACTION_DURATION);
 
-    undoBtn.addEventListener('click', () => {
+    actionBtn.addEventListener('click', () => {
       clearTimeout(timer);
       toast.remove();
-      onUndo();
+      onAction();
     });
   } else {
     toast.textContent = message;
-    setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.3s';
-      setTimeout(() => toast.remove(), 300);
-    }, 2500);
+    setTimeout(dismiss, DURATION[type]);
   }
 
   container.appendChild(toast);
