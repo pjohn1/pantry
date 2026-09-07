@@ -408,65 +408,6 @@
   color: var(--kb-out);
 }
 
-/* ── Swipe actions: the row's real estate goes back to the ledger ─ */
-
-.kb-swipe {
-  position: relative;
-  overflow: hidden;
-  background: var(--kb-board);
-}
-
-.kb-swipe-actions {
-  position: absolute;
-  inset: 0 0 0 auto;
-  display: flex;
-  align-items: stretch;
-}
-
-.kb-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 86px;
-  padding: 0 6px;
-  border: none;
-  color: var(--kb-card);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.kb-action--pull {
-  background: var(--kb-reorder);
-}
-
-.kb-action--restock {
-  background: var(--kb-stocked);
-}
-
-.kb-action--delete {
-  background: var(--kb-out);
-}
-
-.kb-swipe-surface {
-  position: relative;
-  z-index: 1;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
-.kb-swipe.is-dragging .kb-swipe-surface {
-  transition: none;
-}
-
-/* Focus must never land on something the user cannot see. Scoped to the
-   actions layer: `.kb-swipe:focus-within` also matched the card's own
-   buttons, so merely focusing a card slid its name off screen. */
-.kb-swipe-actions:focus-within + .kb-swipe-surface {
-  transform: translate3d(-172px, 0, 0);
-}
-
 /* ── The dock: the camera path lives in the thumb zone ────────────
    The product's first principle is "never make the user type what a
    camera can read". The camera therefore gets the reachable half of

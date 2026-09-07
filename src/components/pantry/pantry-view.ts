@@ -14,7 +14,6 @@ import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
-import { createSwipeRow, closeAnyOpenSwipeRow } from '../shared/swipe-row';
 
 // svgIcon() assigns innerHTML, so an icon must be markup, not a bare `d`.
 const ICON_BARCODE =
@@ -206,7 +205,6 @@ export function createPantryView(): HTMLElement {
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
-    closeAnyOpenSwipeRow();
     rackContainer.innerHTML = '';
 
     if (loadFailed) {
@@ -310,13 +308,7 @@ export function createPantryView(): HTMLElement {
     on(stampBtn, 'click', () => void pull(item));
     surface.appendChild(stampBtn);
 
-    // Swipe stays, as the accelerator rather than the only door.
-    holder.appendChild(createSwipeRow(surface, [
-      item.isOut
-        ? { label: 'Restock', className: 'kb-action--restock', onAction: () => void pull(item) }
-        : { label: 'Pull', className: 'kb-action--pull', onAction: () => void pull(item) },
-      { label: 'Delete', className: 'kb-action--delete', onAction: () => void remove(item) },
-    ]));
+    holder.appendChild(surface);
 
     if (openCardId === item.id) holder.appendChild(renderDetail(card));
     return holder;

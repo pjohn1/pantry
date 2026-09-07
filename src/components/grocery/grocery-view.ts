@@ -16,7 +16,6 @@ import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { extractReceiptLinesFromImage } from '../../services/ocr.service';
 import { parseReceiptLines, processReceiptAgainstGroceryList } from '../../services/receipt.service';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
-import { createSwipeRow, closeAnyOpenSwipeRow } from '../shared/swipe-row';
 
 // svgIcon() assigns innerHTML, so an icon must be markup, not a bare `d`.
 const ICON_RECEIPT =
@@ -244,7 +243,6 @@ export function createGroceryView(): HTMLElement {
     const scrollParent = container.closest('.app-content');
     const scrollTop = scrollParent?.scrollTop ?? 0;
 
-    closeAnyOpenSwipeRow();
     rackContainer.innerHTML = '';
 
     if (loadFailed) {
@@ -341,10 +339,7 @@ export function createGroceryView(): HTMLElement {
     on(stampBtn, 'click', () => void toggleInCart(item));
     surface.appendChild(stampBtn);
 
-    holder.appendChild(createSwipeRow(surface, [
-      { label: 'File', className: 'kb-action--restock', onAction: () => void file(item) },
-      { label: 'Delete', className: 'kb-action--delete', onAction: () => void remove(item) },
-    ]));
+    holder.appendChild(surface);
 
     if (openCardId === item.id) holder.appendChild(renderDetail(item));
     return holder;

@@ -53,7 +53,8 @@
 /* FAB */
 .fab {
   position: fixed;
-  bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 16px);
+  /* 24px, not 16: see The Floating Control Rule in layout.css. */
+  bottom: calc(var(--tab-bar-height) + var(--safe-area-bottom) + 24px);
   right: 16px;
   width: 50px;
   height: 50px;
@@ -64,7 +65,7 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 12px rgba(0,102,255,0.3);
-  z-index: 50;
+  z-index: 120;
   font-size: 24px;
   font-weight: 300;
   line-height: 1;
@@ -275,6 +276,7 @@
 }
 
 .modal {
+  overscroll-behavior: contain;
   background: var(--color-bg);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: var(--spacing-lg);
@@ -457,9 +459,12 @@
   animation: viewFadeIn 0.15s ease-out;
 }
 
+/* Opacity only: a non-`none` transform makes the view container the
+   containing block for every `position: fixed` descendant, which silently
+   reparents floating controls for the life of the animation. */
 @keyframes viewFadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Animations */
@@ -800,12 +805,17 @@
 
 .url-input-row .input { flex: 1; }
 
-/* Prevent iOS rubber-band */
+/* Suppress the iOS rubber-band, but never fix the root.
+   A `position: fixed` root leaves the document with no scrollable overflow, so
+   when WebKit needs to reveal a focused field — or the user pinches — it pans
+   the VISUAL viewport instead, and nothing in the page can pan it back. Paint
+   and touch coordinates then stay offset for the rest of the session, which is
+   why taps were landing in the wrong place. `overscroll-behavior` alone does
+   the rubber-band job; `reset.css` already sets it on body. */
 html, body {
   overscroll-behavior: none;
-  position: fixed;
   width: 100%;
-  height: 100%;
+  height: 100dvh;
 }
 
 /* FAB clearance */

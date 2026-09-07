@@ -1,13 +1,16 @@
 #app {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  /* `html`/`body` own the viewport height (components.css); matching them by
+     percentage keeps the three in agreement in both standalone and in-browser. */
+  height: 100%;
   overflow: hidden;
 }
 
 .app-content {
   flex: 1;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: var(--spacing-md);
   padding-top: calc(var(--safe-area-top) + var(--spacing-md));
@@ -15,6 +18,17 @@
   background: var(--color-bg);
 }
 
+/* The Floating Control Rule — anything floating above this bar must have:
+     1. >= 24px clearance from its top edge. On iOS, `-webkit-backdrop-filter`
+        promotes this bar to a composited layer whose HIT region WebKit inflates
+        by roughly the blur radius, so a closer element receives its touches.
+        This is what made the old bottom dock completely untappable.
+     2. `z-index: 120`, above this bar's 100. Necessary but not sufficient —
+        clearance is the load-bearing half, because the inflation happens in the
+        compositor rather than in paint order.
+     3. To be a child of `#app`, a sibling of this bar — never a descendant of
+        the router's content element, which is replaced on every hashchange and
+        whose transforms capture fixed descendants. */
 .tab-bar {
   position: fixed;
   bottom: 0;

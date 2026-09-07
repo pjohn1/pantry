@@ -11,7 +11,6 @@ export function createApp(): void {
   const app = document.getElementById('app')!;
 
   const content = el('main', { className: 'app-content' });
-  const tabBar = createTabBar();
 
   // Toast container. A live region, so the confirmation a ledger most needs to
   // give — "it saved" — is announced and not only drawn.
@@ -23,7 +22,6 @@ export function createApp(): void {
   toastContainer.id = 'toast-container';
 
   app.appendChild(content);
-  app.appendChild(tabBar);
   app.appendChild(toastContainer);
 
   // Register routes
@@ -32,6 +30,11 @@ export function createApp(): void {
   registerRoute('recipes', createRecipesView);
   registerRoute('inspo', createInspoView);
   registerRoute('settings', createSettingsView);
+
+  // The tab bar asks the router which route is active, and that answer is now
+  // registry-aware, so it has to be built after the routes are registered.
+  const tabBar = createTabBar();
+  app.insertBefore(tabBar, toastContainer);
 
   initRouter(content);
 }
