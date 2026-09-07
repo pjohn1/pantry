@@ -509,6 +509,124 @@
   object-fit: contain;
 }
 
+/* ── Making a recipe with Claude ──────────────────────────────────
+   The hand-off sits at the top of the add sheet, above the title field and
+   ruled off from it, because it is the one thing in there that leaves the app.
+   The note under the button is not decoration: this app promises elsewhere
+   that nothing leaves the device unless you export it, and the sentence that
+   qualifies that promise has to be readable before the button is pressed —
+   hence soft ink on the 13px floor rather than a smaller aside. */
+.inspo-claude {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspo-claude-note {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--kb-ink-soft);
+  padding-inline: 2px;
+}
+
+/* The one hairline in the sheet. `.modal-body` supplies the 16px either side
+   of it through its own gap, so this rule carries no margin of its own. */
+.inspo-sheet-rule {
+  height: 1px;
+  background: var(--kb-card-edge);
+}
+
+/* A textarea inherits neither the page's face nor its size, so both are said
+   again here. 16px is the floor that stops iOS zooming a focused field. */
+.inspo-paste {
+  min-height: 96px;
+  padding-top: 12px;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+/* ── The recipe reader ────────────────────────────────────────────
+   A recipe saved from Claude has no link to leave for, so this sheet is the
+   whole of it. It is the one piece of long-form text in the app, and it is
+   read standing up in a kitchen: 15px on a 1.5 line height, one ramp step per
+   level, and no colour — an ingredient you have to buy says so in words,
+   because the only signal ink here means a staple you have run out of. */
+.inspo-recipe {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspo-recipe-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspo-recipe-summary {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--kb-ink);
+}
+
+.inspo-recipe-head {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+  margin-top: 4px;
+}
+
+.inspo-recipe-ings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.inspo-recipe-ing {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--kb-ink);
+}
+
+.inspo-recipe-buy {
+  flex: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--kb-ink-soft);
+}
+
+.inspo-recipe-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 20px;
+  margin: 0;
+}
+
+.inspo-recipe-steps li {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--kb-ink);
+  padding-left: 2px;
+}
+
+.inspo-recipe-notes {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--kb-ink-soft);
+  padding-top: 4px;
+  border-top: 1px solid var(--kb-card-edge);
+}
+
 
 /* Suppress the iOS rubber-band, but never fix the root.
    A `position: fixed` root leaves the document with no scrollable overflow, so

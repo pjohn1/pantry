@@ -1,6 +1,6 @@
 import { getDB } from '../db/database';
 import { emit } from '../utils/events';
-import type { InspoItem, InspoPlatform } from '../models/types';
+import type { InspoItem, InspoPlatform, SavedRecipe } from '../models/types';
 import { fetchCover } from './cover.service';
 
 function detectPlatform(url: string): InspoPlatform {
@@ -39,6 +39,32 @@ export async function saveInspoImage(dataUrl: string, title?: string): Promise<I
     title: title || '',
     thumbnailUrl: dataUrl,
     platform: 'image',
+    dateAdded: Date.now(),
+  };
+
+  const db = await getDB();
+  await db.put('inspoItems', item);
+  return item;
+}
+
+/**
+ * A recipe Claude wrote, saved as one more thing on the Saved list.
+ *
+ * It carries no `url` and no `thumbnailUrl`, which is what keeps `ensureCovers`
+ * away from it — `needsCover` requires a link to go and look at. The row draws
+ * its monogram from the title instead, and opening it reads the recipe in the
+ * app rather than leaving for a browser.
+ *
+ * Several arrive at once, so this writes one row per call and the caller batches.
+ */
+export async function saveInspoRecipe(title: string, recipe: SavedRecipe): Promise<InspoItem> {
+  const item: InspoItem = {
+    id: crypto.randomUUID(),
+    url: '',
+    title,
+    thumbnailUrl: '',
+    platform: 'recipe',
+    recipe,
     dateAdded: Date.now(),
   };
 

@@ -6,8 +6,11 @@ import {
   deleteInspoItem,
   restoreInspoItem,
   updateInspoItem,
+  saveInspoRecipe,
   ensureCovers,
 } from '../../services/inspo.service';
+import { getAllPantryItems } from '../../services/pantry.service';
+import { buildRecipeHandoff, parseRecipeFile } from '../../services/claude-recipe.service';
 import { describeLink } from '../../services/cover.service';
 import type { InspoItem } from '../../models/types';
 import { openModal } from '../shared/modal';
@@ -44,6 +47,18 @@ function savedOn(ts: number): string {
  */
 function rowText(item: InspoItem): { name: string; sub: string } {
   const title = item.title.trim();
+
+  if (item.platform === 'recipe') {
+    // A recipe names itself, so the second line spends itself on the two
+    // numbers you decide by: how long it takes and how many it feeds.
+    const facts: string[] = [];
+    if (item.recipe?.totalMinutes) facts.push(`${item.recipe.totalMinutes} min`);
+    if (item.recipe?.servings) facts.push(`serves ${item.recipe.servings}`);
+    return {
+      name: title || 'Recipe',
+      sub: facts.length ? `Recipe · ${facts.join(' · ')}` : `Recipe · saved ${savedOn(item.dateAdded)}`,
+    };
+  }
 
   if (item.platform === 'image') {
     return title
@@ -93,9 +108,12 @@ function paintCover(tile: HTMLElement, item: InspoItem): void {
     return;
   }
   tile.classList.add('kb-cover--mono');
-  const mono = item.platform === 'image'
-    ? describeLink('', item.title).monogram
-    : describeLink(item.url, item.title).monogram;
+  // Screenshots and recipes have no link to take a letter from, so the title
+  // has to supply it. Keyed on the link rather than the platform so a fourth
+  // kind of linkless item needs no change here.
+  const mono = item.url
+    ? describeLink(item.url, item.title).monogram
+    : describeLink('', item.title).monogram;
   tile.appendChild(el('span', { className: 'kb-cover-mono', 'aria-hidden': 'true' }, mono));
 }
 
@@ -172,9 +190,9 @@ export function createInspoView(): HTMLElement {
     // out on stock rather than floated over a photograph.
     const openBtn = el('button', {
       className: 'kb-row-open',
-      'aria-label': item.platform === 'image'
-        ? `Open ${name}`
-        : `Open ${name} on ${describeLink(item.url).sourceLabel}`,
+      'aria-label': item.url
+        ? `Open ${name} on ${describeLink(item.url).sourceLabel}`
+        : `Open ${name}`,
     });
     openBtn.dataset.control = 'open';
     openBtn.appendChild(buildCover(item));
@@ -185,7 +203,8 @@ export function createInspoView(): HTMLElement {
     openBtn.appendChild(main);
 
     on(openBtn, 'click', () => {
-      if (item.platform === 'image') openImageSheet(item);
+      if (item.platform === 'recipe') openRecipeSheet(item);
+      else if (item.platform === 'image') openImageSheet(item);
       else if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
     });
     row.appendChild(openBtn);
@@ -261,8 +280,14 @@ export function createInspoView(): HTMLElement {
     if (!query) return items;
     return items.filter(item => {
       const { sourceLabel, handle } = describeLink(item.url, item.title);
-      return [item.title, sourceLabel, handle, item.url]
-        .some(field => field?.toLowerCase().includes(query));
+      const fields = [item.title, sourceLabel, handle, item.url];
+      // A recipe is looked for by what goes in it — you have salmon, you want
+      // the salmon one — so its ingredients are part of its text.
+      if (item.recipe) {
+        fields.push(item.recipe.summary);
+        for (const ing of item.recipe.ingredients) fields.push(ing.name);
+      }
+      return fields.some(field => field?.toLowerCase().includes(query));
     });
   }
 
@@ -282,7 +307,7 @@ export function createInspoView(): HTMLElement {
 
     if (items.length === 0) {
       listEl.appendChild(notice(
-        'Nothing saved yet. Paste a TikTok, Instagram or YouTube link, or add a screenshot of something you want to cook.',
+        'Nothing saved yet. Make a recipe with Claude out of what’s in your pantry, paste a TikTok, Instagram or YouTube link, or add a screenshot of something you want to cook.',
       ));
       return;
     }
@@ -403,8 +428,102 @@ export function createInspoView(): HTMLElement {
     });
   }
 
+  /**
+   * The reader.
+   *
+   * A recipe saved from Claude has nowhere else to be read — there is no link
+   * to leave for — so this sheet is the whole of it: what it is, what goes in,
+   * and what to do, on one scroll.
+   */
+  function openRecipeSheet(item: InspoItem) {
+    const recipe = item.recipe;
+    if (!recipe) return;
+
+    openModal(displayName(item), (body) => {
+      const box = el('div', { className: 'inspo-recipe' });
+
+      const facts: string[] = [];
+      if (recipe.totalMinutes) facts.push(`${recipe.totalMinutes} min`);
+      if (recipe.servings) facts.push(`Serves ${recipe.servings}`);
+      if (facts.length) box.appendChild(el('p', { className: 'inspo-recipe-meta' }, facts.join(' · ')));
+
+      if (recipe.summary) box.appendChild(el('p', { className: 'inspo-recipe-summary' }, recipe.summary));
+
+      if (recipe.ingredients.length) {
+        box.appendChild(el('h3', { className: 'inspo-recipe-head' }, 'What you need'));
+        const ings = el('ul', { className: 'inspo-recipe-ings' });
+        for (const ing of recipe.ingredients) {
+          const amount = [ing.quantity, ing.unit].filter(Boolean).join(' ');
+          const li = el('li', { className: 'inspo-recipe-ing' });
+          li.appendChild(el('span', {}, amount ? `${amount} ${ing.name}` : ing.name));
+          // Said in words, not colour. The one signal ink in this app means a
+          // staple you have run out of, and a recipe wanting honey is not that.
+          if (!ing.have) li.appendChild(el('span', { className: 'inspo-recipe-buy' }, 'to buy'));
+          ings.appendChild(li);
+        }
+        box.appendChild(ings);
+      }
+
+      box.appendChild(el('h3', { className: 'inspo-recipe-head' }, 'How to make it'));
+      const steps = el('ol', { className: 'inspo-recipe-steps' });
+      for (const step of recipe.steps) steps.appendChild(el('li', {}, step));
+      box.appendChild(steps);
+
+      if (recipe.notes) box.appendChild(el('p', { className: 'inspo-recipe-notes' }, recipe.notes));
+
+      body.appendChild(box);
+    });
+  }
+
   function openAddSheet() {
     openModal('Save an idea', (body, close) => {
+      // ── Make a recipe with Claude ──────────────────────────────
+      // The one path by which pantry contents leave this device, and they leave
+      // as a link the user taps: the app makes no request, holds no key and has
+      // no server behind it. The note says so, because "nothing leaves the
+      // device unless you export it" is a promise made elsewhere in this app
+      // and an exception to it should be read before it is taken, not after.
+      const claudeBlock = el('div', { className: 'inspo-claude' });
+      const claudeBtn = el('button', { className: 'btn btn-primary btn-block' },
+        'Make a recipe with Claude');
+      claudeBlock.appendChild(claudeBtn);
+      claudeBlock.appendChild(el('p', { className: 'inspo-claude-note' },
+        'Opens Claude with a list of what’s in your pantry and asks for three recipes. Nothing is sent until you tap send there.'));
+      body.appendChild(claudeBlock);
+      body.appendChild(el('div', { className: 'inspo-sheet-rule' }));
+
+      // Read the pantry as the sheet opens rather than when the button is
+      // tapped. A window.open that follows an await has left the user gesture
+      // behind, and iOS blocks it — so the handler below has to be synchronous.
+      let handoff: { prompt: string; url: string; stocked: number } | null = null;
+      void getAllPantryItems()
+        .then(pantry => {
+          handoff = {
+            ...buildRecipeHandoff(pantry),
+            stocked: pantry.filter(item => !item.isOut).length,
+          };
+        })
+        .catch(() => { handoff = null; });
+
+      on(claudeBtn, 'click', () => {
+        if (!handoff) {
+          showToast('Still reading your pantry — try that again.', 'error');
+          return;
+        }
+        // An empty pantry would send Claude a prompt with nothing in it, and
+        // get back three recipes for a kitchen that isn't this one.
+        if (handoff.stocked === 0) {
+          showToast('Add something to your pantry first.', 'error');
+          return;
+        }
+        // The clipboard is the safety net if the composer does not prefill.
+        // Best effort and never awaited: the link is what has to work.
+        void navigator.clipboard?.writeText(handoff.prompt).catch(() => {});
+        window.open(handoff.url, '_blank', 'noopener,noreferrer');
+        close();
+        showToast('Opening Claude. The prompt is copied too, in case it doesn’t fill in.');
+      });
+
       const titleGroup = el('div', { className: 'input-group' });
       titleGroup.appendChild(el('label', { for: 'inspo-add-title' }, 'Title'));
       const titleInput = el('input', {
@@ -421,8 +540,12 @@ export function createInspoView(): HTMLElement {
       const imageTab = el('button', {
         className: 'inspo-modal-tab', role: 'tab', 'aria-selected': 'false',
       }, 'Screenshot');
+      const recipeTab = el('button', {
+        className: 'inspo-modal-tab', role: 'tab', 'aria-selected': 'false',
+      }, 'Recipe');
       tabs.appendChild(linkTab);
       tabs.appendChild(imageTab);
+      tabs.appendChild(recipeTab);
       body.appendChild(tabs);
 
       const linkPanel = el('div', { className: 'inspo-panel' });
@@ -456,19 +579,104 @@ export function createInspoView(): HTMLElement {
       imagePanel.appendChild(previewEl);
       imagePanel.appendChild(addImageBtn);
 
+      // The other half of the round trip: the file Claude wrote comes back
+      // here. Two ways in, because on a phone they are genuinely different
+      // journeys — a file saved to Files, or a code block copied in Claude.
+      const recipePanel = el('div', { className: 'inspo-panel' });
+      recipePanel.hidden = true;
+      const recipeFileLabel = el('label', { className: 'btn btn-secondary btn-block' },
+        'Choose a recipe file');
+      const recipeFileInput = el('input', {
+        type: 'file', accept: '.html,.json,text/html,application/json',
+      }) as HTMLInputElement;
+      recipeFileInput.hidden = true;
+      recipeFileLabel.appendChild(recipeFileInput);
+      recipePanel.appendChild(recipeFileLabel);
+
+      const pasteGroup = el('div', { className: 'input-group' });
+      pasteGroup.appendChild(el('label', { for: 'inspo-add-recipe' }, 'Or paste what Claude wrote'));
+      const pasteInput = el('textarea', {
+        className: 'input inspo-paste', id: 'inspo-add-recipe', rows: '4',
+        placeholder: 'Paste the recipe file, or just the block of JSON inside it',
+        autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false',
+      }) as HTMLTextAreaElement;
+      pasteGroup.appendChild(pasteInput);
+      recipePanel.appendChild(pasteGroup);
+      const addRecipeBtn = el('button', { className: 'btn btn-primary btn-block' }, 'Import recipes');
+      recipePanel.appendChild(addRecipeBtn);
+
       body.appendChild(linkPanel);
       body.appendChild(imagePanel);
+      body.appendChild(recipePanel);
 
-      function selectTab(link: boolean) {
-        linkTab.classList.toggle('active', link);
-        imageTab.classList.toggle('active', !link);
-        linkTab.setAttribute('aria-selected', String(link));
-        imageTab.setAttribute('aria-selected', String(!link));
-        linkPanel.hidden = !link;
-        imagePanel.hidden = link;
+      type AddTab = 'link' | 'image' | 'recipe';
+      function selectTab(which: AddTab) {
+        for (const [tab, panel, name] of [
+          [linkTab, linkPanel, 'link'],
+          [imageTab, imagePanel, 'image'],
+          [recipeTab, recipePanel, 'recipe'],
+        ] as [HTMLElement, HTMLElement, AddTab][]) {
+          const selected = name === which;
+          tab.classList.toggle('active', selected);
+          tab.setAttribute('aria-selected', String(selected));
+          panel.hidden = !selected;
+        }
+        // A recipe brings its own title — several, in fact — so the shared
+        // field above has nothing to say about one.
+        titleGroup.hidden = which === 'recipe';
       }
-      on(linkTab, 'click', () => selectTab(true));
-      on(imageTab, 'click', () => selectTab(false));
+      on(linkTab, 'click', () => selectTab('link'));
+      on(imageTab, 'click', () => selectTab('image'));
+      on(recipeTab, 'click', () => selectTab('recipe'));
+
+      async function importRecipes(text: string, trigger: HTMLButtonElement | null) {
+        if (trigger) { trigger.disabled = true; trigger.textContent = 'Importing…'; }
+        // Held outside the try so that a write failing partway still shows what
+        // did land. Several rows go in one at a time and there is no
+        // transaction across them; the list on screen has to match the store
+        // either way, or the next delete acts on a row that isn't there.
+        const saved: InspoItem[] = [];
+        try {
+          const parsed = parseRecipeFile(text);
+          for (const { title, recipe } of parsed) saved.push(await saveInspoRecipe(title, recipe));
+          // Newest first, which is the order a reload would rebuild: each save
+          // stamps a later dateAdded than the one before it.
+          items = [...saved.reverse(), ...items];
+          close();
+          showToast(saved.length === 1 ? 'Saved 1 recipe' : `Saved ${saved.length} recipes`, 'success');
+          render();
+        } catch (err) {
+          if (saved.length > 0) {
+            items = [...saved.reverse(), ...items];
+            render();
+          }
+          showToast((err as Error).message || 'Couldn’t read those recipes.', 'error');
+          if (trigger) { trigger.disabled = false; trigger.textContent = 'Import recipes'; }
+        }
+      }
+
+      on(recipeFileInput, 'change', async () => {
+        const file = recipeFileInput.files?.[0];
+        if (!file) return;
+        // Cleared so that picking the same file twice fires again — the fix
+        // this app already applies to the receipt input and to nothing else.
+        recipeFileInput.value = '';
+        try {
+          await importRecipes(await file.text(), null);
+        } catch {
+          showToast('Couldn’t open that file.', 'error');
+        }
+      });
+
+      on(addRecipeBtn, 'click', () => {
+        const text = pasteInput.value.trim();
+        if (!text) {
+          showToast('Paste what Claude gave you first.', 'error');
+          pasteInput.focus();
+          return;
+        }
+        void importRecipes(text, addRecipeBtn);
+      });
 
       let selectedDataUrl = '';
       on(fileInput, 'change', async () => {

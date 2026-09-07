@@ -124,7 +124,37 @@ export interface Recipe {
   mealCategory?: RecipeMealCategory;
 }
 
-export type InspoPlatform = 'tiktok' | 'instagram' | 'image' | 'other';
+/**
+ * A recipe Claude wrote from the pantry list, saved as its own kind of item.
+ *
+ * It lives on an `InspoItem` rather than in a store of its own. The `recipes`
+ * store is tombstoned and a new one would mean bumping `DB_VERSION`, which with
+ * `autoUpdate` caching leaves an older cached shell unable to open the database
+ * at all (see the comment in `db/database.ts`). IndexedDB records are
+ * schemaless, `inspoItems` carries no indexes, and export/import passes its
+ * rows through untouched — so an extra field costs nothing and backs itself up.
+ */
+export interface SavedRecipeIngredient {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  category: ItemCategory;
+  /** Claude's claim that this was already in the pantry when it wrote the
+   *  recipe. Reference information printed in the reader — it is never joined
+   *  against `pantryItems` and never drives the grocery list. */
+  have: boolean;
+}
+
+export interface SavedRecipe {
+  summary: string;
+  servings?: number;
+  totalMinutes?: number;
+  ingredients: SavedRecipeIngredient[];
+  steps: string[];
+  notes?: string;
+}
+
+export type InspoPlatform = 'tiktok' | 'instagram' | 'image' | 'recipe' | 'other';
 
 export interface InspoItem {
   id: string;
@@ -140,5 +170,9 @@ export interface InspoItem {
   /** When a cover was last looked for. A link whose source has no cover to
    *  give would otherwise be re-fetched on every single open. */
   coverTriedAt?: number;
+  /** Set only when `platform` is `'recipe'`: the recipe the reader prints.
+   *  Such an item carries no `url` and no `thumbnailUrl`, so the cover fetcher
+   *  skips it on its own. */
+  recipe?: SavedRecipe;
   dateAdded: number;
 }

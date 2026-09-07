@@ -37,7 +37,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 - Installed to the iPhone home screen, launched in standalone mode; treated as an appliance, not a website.
 - Used in short bursts with one hand, often while holding something else.
 - Cooking inspiration arrives as TikTok and Instagram links saved for later.
-- Data lives only on the device it was entered on. JSON export/import is the only transfer mechanism.
+- Data lives only on the device it was entered on. JSON export/import is the only way data comes back in wholesale; the Claude hand-off is the only other way any of it goes out, and it goes out as a link the user taps.
 
 ## Capabilities and Constraints
 
@@ -47,6 +47,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 - Grocery list assembled from three sources: `auto` (the things you usually buy, minus what's in the pantry), `out` (marked out of stock), `manual`.
 - Typical-order baseline, edited in Settings.
 - Saved tab for TikTok/Instagram/image cooking inspiration, tagged by meal.
+- **Make a recipe with Claude**, from the Saved tab's add sheet: the app builds a prompt carrying the in-stock pantry list and opens it in Claude. Claude returns one self-contained HTML file that reads on its own and carries its recipes as embedded JSON; importing it (by file or by paste) saves them as Saved items with an in-app reader. The app parses no prose, calls no API and holds no key.
 - Barcode scanning for product name and category lookup.
 - Receipt photo → pantry population.
 - Full JSON export/import.
@@ -59,7 +60,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 **Binding constraints (confirmed by the user)**
 
 - **No accounts, no backend, on-device only.** All data in IndexedDB. A deliberate privacy and simplicity choice, not an unfinished stage.
-- **Must work offline.** The core loop has to function in a store with no signal. Only two features may depend on the network — barcode lookup and inspo thumbnails — and each must degrade without breaking.
+- **Must work offline.** The core loop has to function in a store with no signal. Only two features may depend on the network — barcode lookup and inspo thumbnails — and each must degrade without breaking. Making a recipe with Claude is not a third: it leaves the app entirely rather than fetching anything, and a recipe already saved reads with no signal at all.
 - **Free hosting: GitHub Pages only.** No paid infra or APIs, and no server-side component at all since recipe parsing was removed. Keeps the static build and the `/pantry/` base path in place.
 - **iPhone-first, installed to the home screen.** Phone in hand is the design target; desktop is incidental.
 
@@ -71,7 +72,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 
 **Explicitly undecided**
 
-- Whether recipes return in any form. A "Cook" tab that found recipes from pantry contents shipped in Feb 2026 and was replaced by the Saved/inspo tab in Mar 2026; whether that was abandonment or deferral was never recorded. On 2026-09-07 the user removed the remaining Recipes tab outright — URL parsing, photo OCR, and the Cloudflare Worker — as part of an ease-of-use overhaul. That settles the *current* product, and makes the older Cook question moot rather than answered. The Saved tab still holds recipe links; what is gone is parsing them.
+- ~~Whether recipes return in any form.~~ **Decided 2026-09-07:** they return, but only as something handed to the app, never as something the app works out. A "Cook" tab that found recipes from pantry contents shipped in Feb 2026 and was replaced by the Saved/inspo tab in Mar 2026; on 2026-09-07 the user removed the remaining Recipes tab outright — URL parsing, photo OCR, and the Cloudflare Worker. The parsing stays gone. What returned the same day is **Make a recipe with Claude**: the app writes a prompt and reads a file back. It is a hand-off, not a feature that understands food, which is why it costs nothing the removal bought — no scraper, no OCR, no worker, no server.
 - ~~Whether saved inspo is meant to be durable.~~ **Decided 2026-09-07:** it is. Saved items are now included in export, import, and clear-all-data.
 
 ## Brand Commitments
@@ -91,7 +92,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 2. **Never make the user type what a camera can read.** Receipts and barcodes are inputs; typing is the fallback.
 3. **The list is derived, never maintained.** The user curates the typical order and the pantry; the grocery list follows from them.
 4. **Aisle-grade reliability.** One hand, bad signal, cold hands, glancing at the screen between shelves. Anything that fails there fails.
-5. **Nothing leaves the device unless the user exports it.** No account, no telemetry, no sync as a solution to any problem.
+5. **Nothing leaves the device unless the user exports it.** No account, no telemetry, no sync as a solution to any problem. There are exactly two exports and each is a button the user presses: the JSON backup, and the Claude hand-off, which puts the in-stock pantry list into a link and opens it. Neither runs on its own, and the Claude one transmits nothing until the user taps send in Claude. Anything added to that prompt is added to what leaves the device — the out-of-stock list, the usually-buy baseline and the shopping list are deliberately not in it.
 
 ## Accessibility & Inclusion
 
