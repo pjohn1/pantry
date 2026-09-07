@@ -4,7 +4,8 @@ import {
   deletePantryItem, restorePantryItem, toggleOut,
 } from '../../services/pantry.service';
 import {
-  getAllTypicalOrderItems, addTypicalOrderItem, updateTypicalOrderItem,
+  getAllTypicalOrderItems, addTypicalOrderItem,
+  updateTypicalOrderItem, deleteTypicalOrderItem,
 } from '../../services/typical-order.service';
 import {
   CATEGORIES, CATEGORY_LABELS,
@@ -15,50 +16,18 @@ import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
 
-// svgIcon() assigns innerHTML, so an icon must be markup, not a bare `d`.
-const ICON_BARCODE =
-  '<path d="M2 2h5v5H2zM9 2h2M13 2h5v5h-5zM16 7h2M2 9h2M7 9h2M11 9v4M2 13h2M11 13h2M13 11h2M2 17h5v5H2zM7 17h2M13 17h5v5h-5z"/>';
 const ICON_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
+const ICON_TRASH =
+  '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>';
 
-function formatDate(ts: number): string {
-  const d = new Date(ts);
-  const sameYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    ...(sameYear ? {} : { year: 'numeric' }),
-  });
-}
-
-/**
- * A kanban card is on the bin or it has been pulled — nothing in between.
- * That is also what this product decided: depletion is binary, and the
- * recorded quantity is reference information, not a tracked value. So the
- * signal is never derived from quantity; it comes from `isOut` alone.
- *
- * `plain` is an item with no declared baseline: it can still be pulled, but
- * there is no baseline to measure it against, so it spends no signal ink.
- */
-type CardStatus = 'out' | 'stocked' | 'plain';
-
-interface Card {
+interface Row {
   item: PantryItem;
-  /** The typical-order entry that declares this item a staple, if any. */
-  typical: TypicalOrderItem | null;
-  status: CardStatus;
+  /** The standing amount for this item, when there is one. */
+  usual: TypicalOrderItem | null;
 }
-
-const STATUS_RANK: Record<CardStatus, number> = { out: 0, stocked: 1, plain: 2 };
-
-/** Colour is reserved for a declared state; a bare action stays neutral. */
-const STAMP: Record<CardStatus, { label: string; cls: string; action: string }> = {
-  out: { label: 'Out', cls: 'kb-stamp--out', action: 'put back on the rack' },
-  stocked: { label: 'Stocked', cls: 'kb-stamp--stocked', action: 'pull this card' },
-  plain: { label: 'Pull', cls: 'kb-stamp--plain', action: 'pull this card' },
-};
 
 export function createPantryView(): HTMLElement {
-  const container = el('div', { className: 'kb-rack-view pantry-view' });
+  const container = el('div', { className: 'kb-list-view pantry-view' });
 
   // ── Toolbar ────────────────────────────────────────────────────
   const toolbar = el('div', { className: 'kb-toolbar' });
@@ -66,8 +35,8 @@ export function createPantryView(): HTMLElement {
   const searchInput = el('input', {
     className: 'kb-search',
     type: 'search',
-    placeholder: 'Find a card',
-    'aria-label': 'Search pantry',
+    placeholder: 'Search your pantry',
+    'aria-label': 'Search your pantry',
     autocapitalize: 'none',
     autocorrect: 'off',
     spellcheck: 'false',
@@ -75,46 +44,32 @@ export function createPantryView(): HTMLElement {
   }) as HTMLInputElement;
   toolbar.appendChild(searchInput);
 
-  const pulledBtn = el('button', {
-    className: 'kb-pulled',
+  const outBtn = el('button', {
+    className: 'kb-filter',
     'aria-pressed': 'false',
+    'aria-label': "Show only what you're out of",
   }) as HTMLButtonElement;
-  const pulledN = el('span', { className: 'kb-pulled-n' }, '0');
-  pulledBtn.appendChild(pulledN);
-  pulledBtn.appendChild(el('span', {}, 'pulled'));
-  toolbar.appendChild(pulledBtn);
+  const outN = el('span', { className: 'kb-filter-n' }, '0');
+  outBtn.appendChild(outN);
+  outBtn.appendChild(el('span', {}, 'out'));
+  toolbar.appendChild(outBtn);
+
+  const addBtn = el('button', {
+    className: 'kb-tool-btn kb-add',
+    'aria-label': 'Add an item',
+  });
+  addBtn.appendChild(svgIcon(ICON_PLUS, 20));
+  on(addBtn, 'click', () => openItemForm());
+  toolbar.appendChild(addBtn);
   container.appendChild(toolbar);
 
-  const rackContainer = el('div', { className: 'kb-racks' });
-  container.appendChild(rackContainer);
-
-  // ── Dock: the camera owns the thumb zone ───────────────────────
-  const dock = el('div', { className: 'kb-dock' });
-
-  const scanBtn = el('button', { className: 'kb-dock-btn kb-dock-scan' });
-  scanBtn.appendChild(svgIcon(ICON_BARCODE, 18));
-  scanBtn.appendChild(el('span', {}, 'Scan'));
-  on(scanBtn, 'click', () => {
-    openBarcodeScanner((name, category) => openItemForm({ name, category }));
-  });
-  dock.appendChild(scanBtn);
-
-  const newBtn = el('button', {
-    className: 'kb-dock-btn kb-dock-new',
-    'aria-label': 'New card',
-  });
-  newBtn.appendChild(svgIcon(ICON_PLUS, 20));
-  on(newBtn, 'click', () => openItemForm());
-  dock.appendChild(newBtn);
-  container.appendChild(dock);
+  const listEl = el('div', { className: 'kb-list' });
+  container.appendChild(listEl);
 
   // ── State ──────────────────────────────────────────────────────
-  let cards: Card[] = [];
+  let rows: Row[] = [];
   let loadFailed = false;
-  let pulledOnly = false;
-  let openCardId: string | null = null;
-  /** Set before a write so focus returns to the card after the re-render. */
-  let refocusCardId: string | null = null;
+  let outOnly = false;
 
   async function mutate(run: () => Promise<void>, failure: string): Promise<boolean> {
     try {
@@ -129,56 +84,93 @@ export function createPantryView(): HTMLElement {
     }
   }
 
-  function openItemForm(initial?: Partial<ItemFormData>, existing?: PantryItem) {
-    openModal(existing ? 'Edit card' : 'New card', (body, close) => {
+  /** One tap from the + button, or from a row's name to edit it. */
+  function openItemForm(row?: Row) {
+    const item = row?.item;
+    openModal(item ? 'Edit item' : 'Add an item', (body, close) => {
       createItemForm(body, {
-        initial: initial ?? (existing
-          ? { name: existing.name, quantity: existing.quantity, unit: existing.unit, category: existing.category }
-          : undefined),
-        submitLabel: existing ? 'Save' : 'Add card',
+        initial: item
+          ? {
+              name: item.name,
+              category: item.category,
+              unit: row?.usual?.unit ?? item.unit,
+              quantity: row?.usual?.quantity,
+            }
+          : undefined,
+        submitLabel: item ? 'Save' : 'Add to pantry',
+        quantityLabel: 'Usually buy',
+        quantityHint: "Leave blank if this isn't something you always keep.",
+        scan: (apply) => openBarcodeScanner((name, category) => apply({ name, category })),
         onSubmit: async (data: ItemFormData) => {
-          const ok = await mutate(
-            async () => {
-              if (existing) await updatePantryItem({ ...existing, ...data });
-              else await addPantryItem(data);
-            },
-            existing ? `Couldn’t save changes to ${data.name}.` : `Couldn’t save ${data.name}.`,
-          );
+          const ok = await mutate(async () => {
+            if (item) {
+              await updatePantryItem({
+                ...item, name: data.name, unit: data.unit, category: data.category,
+              });
+            } else {
+              await addPantryItem({
+                name: data.name, quantity: 1, unit: data.unit, category: data.category,
+              });
+            }
+            // The number field is the standing amount, and writes only there.
+            // The item's own quantity is reference information (PRODUCT.md) and
+            // is deliberately left alone.
+            await saveUsual(row ?? null, data);
+          }, `Couldn’t save ${data.name}.`);
           if (!ok) return;
           close();
-          showToast(existing ? 'Card updated' : 'Card added', 'success');
+          showToast(item ? 'Saved' : `${data.name} added`, 'success');
           await loadData();
         },
       });
     });
   }
 
+  async function saveUsual(row: Row | null, data: ItemFormData) {
+    const existing = row?.usual ?? null;
+    if (data.quantityBlank) {
+      if (existing) await deleteTypicalOrderItem(existing.id);
+      return;
+    }
+    if (existing) {
+      await updateTypicalOrderItem({
+        ...existing, name: data.name, quantity: data.quantity,
+        unit: data.unit, category: data.category,
+      });
+    } else {
+      await addTypicalOrderItem({
+        name: data.name, quantity: data.quantity,
+        unit: data.unit, category: data.category,
+      });
+    }
+  }
+
   // ── Derivation ─────────────────────────────────────────────────
 
-  function visibleCards(): Card[] {
-    let list = cards;
-    if (pulledOnly) list = list.filter(c => c.status === 'out');
+  function visibleRows(): Row[] {
+    let list = rows;
+    if (outOnly) list = list.filter(r => r.item.isOut);
     const query = searchInput.value.trim().toLowerCase();
-    if (query) list = list.filter(c => c.item.name.toLowerCase().includes(query));
+    if (query) list = list.filter(r => r.item.name.toLowerCase().includes(query));
     return list;
   }
 
-  function updatePulled() {
-    const out = cards.filter(c => c.status === 'out').length;
-    pulledN.textContent = String(out);
-    pulledBtn.hidden = out === 0;
-    if (out === 0 && pulledOnly) pulledOnly = false;
-    pulledBtn.setAttribute('aria-pressed', String(pulledOnly));
+  function updateOutCount() {
+    const out = rows.filter(r => r.item.isOut).length;
+    outN.textContent = String(out);
+    outBtn.hidden = out === 0;
+    if (out === 0 && outOnly) outOnly = false;
+    outBtn.setAttribute('aria-pressed', String(outOnly));
   }
 
   // ── Render ─────────────────────────────────────────────────────
 
   function renderSkeleton() {
-    rackContainer.innerHTML = '';
-    for (let i = 0; i < 5; i++) {
-      const row = el('div', { className: 'kb-skeleton' });
-      row.appendChild(el('div', { className: 'kb-skeleton-line' }));
-      rackContainer.appendChild(row);
+    listEl.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const r = el('div', { className: 'kb-skeleton' });
+      r.appendChild(el('div', { className: 'kb-skeleton-line' }));
+      listEl.appendChild(r);
     }
   }
 
@@ -195,240 +187,107 @@ export function createPantryView(): HTMLElement {
 
   function emptyText(): string {
     const query = searchInput.value.trim();
-    if (cards.length === 0) return 'No cards on the rack yet. Scan a barcode, or add one by hand.';
-    if (pulledOnly) return 'No cards are pulled. Nothing is waiting to be restocked.';
-    if (query) return `No card matches “${query}”.`;
+    if (rows.length === 0) return 'Your pantry is empty. Tap + to add the first thing.';
+    if (outOnly) return 'You have everything. Nothing is out.';
+    if (query) return `Nothing matches “${query}”.`;
     return 'Nothing to show.';
   }
 
-  function renderRacks() {
-    const scrollParent = container.closest('.app-content');
-    const scrollTop = scrollParent?.scrollTop ?? 0;
-
-    rackContainer.innerHTML = '';
+  function render() {
+    const scroller = container.closest('.app-content');
+    const scrollTop = scroller?.scrollTop ?? 0;
+    listEl.innerHTML = '';
 
     if (loadFailed) {
-      rackContainer.appendChild(notice(
-        'Couldn’t read the rack from this device’s storage.',
+      listEl.appendChild(notice(
+        'Couldn’t open your pantry on this device.',
         'Try again',
         () => { renderSkeleton(); void loadData(); },
       ));
       return;
     }
 
-    const list = visibleCards();
+    const list = visibleRows();
     if (list.length === 0) {
-      rackContainer.appendChild(notice(emptyText()));
+      listEl.appendChild(notice(emptyText()));
       return;
     }
 
-    // Canonical category order, so section position never shifts as items
-    // are added and muscle memory can actually form.
+    // Fixed category order, so a group never moves as items are added.
     for (const cat of CATEGORIES) {
-      const inCat = list.filter(c => c.item.category === cat);
+      const inCat = list.filter(r => r.item.category === cat);
       if (inCat.length === 0) continue;
 
+      // What you're out of comes first: that's what you're looking for.
       inCat.sort((a, b) =>
-        STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+        Number(b.item.isOut) - Number(a.item.isOut) ||
         a.item.name.localeCompare(b.item.name));
 
-      const rack = el('div', { className: 'kb-rack' });
-      const tag = el('div', { className: 'kb-bin-tag' });
-      tag.appendChild(el('span', {}, CATEGORY_LABELS[cat]));
-      // One stable meaning: how many cards are off this bin, and nothing at
-      // all when the bin is whole, so the slot only ever reports a problem.
-      const pulledHere = inCat.filter(c => c.status === 'out').length;
-      if (pulledHere > 0) {
-        tag.appendChild(el('span', { className: 'kb-bin-count' }, `${pulledHere} pulled`));
+      const group = el('div', { className: 'kb-group' });
+      const head = el('div', { className: 'kb-group-head' });
+      head.appendChild(el('span', {}, CATEGORY_LABELS[cat]));
+      const outHere = inCat.filter(r => r.item.isOut).length;
+      if (outHere > 0) {
+        head.appendChild(el('span', { className: 'kb-group-count' }, `${outHere} out`));
       }
-      rack.appendChild(tag);
-
-      for (const card of inCat) rack.appendChild(renderCard(card));
-      rackContainer.appendChild(rack);
+      group.appendChild(head);
+      for (const row of inCat) group.appendChild(renderRow(row));
+      listEl.appendChild(group);
     }
 
-    if (scrollParent) {
-      requestAnimationFrame(() => { scrollParent.scrollTop = scrollTop; });
-    }
-
-    if (refocusCardId) {
-      const id = refocusCardId;
-      refocusCardId = null;
-      requestAnimationFrame(() => {
-        rackContainer
-          .querySelector<HTMLElement>(`[data-card-id="${id}"] .kb-card-main`)
-          ?.focus();
-      });
+    if (scroller) {
+      requestAnimationFrame(() => { scroller.scrollTop = scrollTop; });
     }
   }
 
-  function renderCard(card: Card): HTMLElement {
-    const { item, typical, status } = card;
-    const holder = el('div', {});
-    holder.dataset.cardId = item.id;
+  function renderRow(row: Row): HTMLElement {
+    const { item, usual } = row;
+    const el_ = el('div', { className: `kb-row${item.isOut ? ' is-out' : ''}` });
 
-    // Not a button: the row carries two distinct actions, and a button
-    // inside a button is invalid.
-    const surface = el('div', { className: `kb-card${status === 'out' ? ' is-pulled' : ''}` });
-    surface.appendChild(el('span', { className: 'kb-punch' }));
-
-    const main = el('button', {
-      className: 'kb-card-main',
-      'aria-expanded': String(openCardId === item.id),
+    // Ticked means you have it. Unticking puts it on the shopping list.
+    const check = el('button', {
+      className: 'kb-check',
+      role: 'checkbox',
+      'aria-checked': String(!item.isOut),
+      'aria-label': `I have ${item.name}`,
     });
-    main.appendChild(el('span', { className: 'kb-card-name' }, item.name));
+    check.appendChild(el('span', { className: 'kb-check-box' }));
+    on(check, 'click', () => void toggleHave(item));
+    el_.appendChild(check);
 
-    // The baseline is the mechanism, and it is the one number worth reading
-    // in an aisle: it says how many to buy. The recorded quantity is
-    // reference information and lives in the detail, where it cannot be
-    // mistaken for the current ledger.
-    const fields = el('span', { className: 'kb-fields' });
-    if (typical) {
-      fields.appendChild(el('span', { className: 'kb-field-label' }, 'Par'));
-      fields.appendChild(el('span', { className: 'kb-num' }, String(typical.quantity)));
-      fields.appendChild(el('span', { className: 'kb-field-unit' }, typical.unit));
-    } else {
-      fields.appendChild(el('span', { className: 'kb-field-label' }, 'No par'));
+    const main = el('button', { className: 'kb-row-main', 'aria-label': `Edit ${item.name}` });
+    main.appendChild(el('span', { className: 'kb-row-name' }, item.name));
+    if (usual) {
+      const sub = el('span', { className: 'kb-row-sub' });
+      sub.appendChild(el('span', {}, 'usually buy '));
+      sub.appendChild(el('span', { className: 'kb-row-n' }, String(usual.quantity)));
+      sub.appendChild(el('span', {}, usual.unit === 'count' ? '' : ` ${usual.unit}`));
+      main.appendChild(sub);
     }
-    main.appendChild(fields);
-    surface.appendChild(main);
+    on(main, 'click', () => openItemForm(row));
+    el_.appendChild(main);
 
-    on(main, 'click', () => toggleDetail(card, holder, main));
+    const del = el('button', { className: 'kb-del', 'aria-label': `Delete ${item.name}` });
+    del.appendChild(svgIcon(ICON_TRASH, 19));
+    on(del, 'click', () => void remove(item));
+    el_.appendChild(del);
 
-    // The stamp is the primary action, because stamping a card is this
-    // world's own ritual for pulling it. Before this, the only way to pull
-    // was a horizontal swipe, which left the whole aisle loop behind a
-    // gesture nothing on screen advertised.
-    const stamp = STAMP[status];
-    const stampBtn = el('button', {
-      className: 'kb-stamp-btn',
-      'aria-label': `${item.name}: ${stamp.action}`,
-    });
-    stampBtn.appendChild(el('span', { className: `kb-stamp ${stamp.cls}` }, stamp.label));
-    on(stampBtn, 'click', () => void pull(item));
-    surface.appendChild(stampBtn);
-
-    holder.appendChild(surface);
-
-    if (openCardId === item.id) holder.appendChild(renderDetail(card));
-    return holder;
-  }
-
-  /** Expands in place without rebuilding the rack, so focus and scroll hold. */
-  function toggleDetail(card: Card, holder: HTMLElement, main: HTMLElement) {
-    if (openCardId === card.item.id) {
-      openCardId = null;
-      holder.querySelector('.kb-detail')?.remove();
-      main.setAttribute('aria-expanded', 'false');
-      return;
-    }
-    if (openCardId) {
-      const prev = rackContainer.querySelector(`[data-card-id="${openCardId}"]`);
-      prev?.querySelector('.kb-detail')?.remove();
-      prev?.querySelector('.kb-card-main')?.setAttribute('aria-expanded', 'false');
-    }
-    openCardId = card.item.id;
-    holder.appendChild(renderDetail(card));
-    main.setAttribute('aria-expanded', 'true');
-  }
-
-  function renderDetail(card: Card): HTMLElement {
-    const { item, typical } = card;
-    const detail = el('div', { className: 'kb-detail' });
-
-    const row = (label: string, value: string) => {
-      const r = el('div', { className: 'kb-detail-row' });
-      r.appendChild(el('span', { className: 'kb-detail-label' }, label));
-      r.appendChild(el('span', { className: 'kb-detail-val' }, value));
-      detail.appendChild(r);
-      return r;
-    };
-
-    // The card row clamps long names; the full text has to live somewhere.
-    row('Name', item.name);
-    row('Bin', CATEGORY_LABELS[item.category]);
-
-    // Declaring a staple was only possible from Settings, so most cards read
-    // "No par" and the mechanism had almost nothing to show. It is now set
-    // from the card it describes.
-    const baselineRow = row('Baseline', typical ? `${typical.quantity} ${typical.unit}` : 'Not a staple');
-    const baselineBtn = el('button', { className: 'kb-inline-btn' },
-      typical ? 'Change' : 'Make staple');
-    on(baselineBtn, 'click', () => {
-      baselineBtn.remove();
-      const editor = el('span', { className: 'kb-baseline-edit' });
-      const input = el('input', {
-        className: 'kb-baseline-input',
-        type: 'number',
-        min: '1',
-        step: '1',
-        'aria-label': `Baseline for ${item.name}`,
-      }) as HTMLInputElement;
-      input.value = String(typical?.quantity ?? item.quantity ?? 1);
-      const save = el('button', { className: 'kb-inline-btn' }, 'Set');
-      on(save, 'click', async () => {
-        const n = Math.max(1, Math.round(parseFloat(input.value) || 1));
-        refocusCardId = item.id;
-        const ok = await mutate(
-          async () => {
-            if (typical) await updateTypicalOrderItem({ ...typical, quantity: n });
-            else await addTypicalOrderItem({
-              name: item.name, quantity: n, unit: item.unit, category: item.category,
-            });
-          },
-          `Couldn’t set a baseline for ${item.name}.`,
-        );
-        if (!ok) return;
-        showToast(typical ? 'Baseline updated' : `${item.name} is now a staple`, 'success');
-        await loadData();
-      });
-      editor.appendChild(input);
-      editor.appendChild(save);
-      baselineRow.appendChild(editor);
-      input.focus();
-    });
-    baselineRow.appendChild(baselineBtn);
-
-    // Reference only, and dated, so it can never read as the live ledger.
-    row('Recorded', `${item.quantity} ${item.unit} · ${formatDate(item.dateAdded)}`);
-    if (item.purchaseDate) row('Last bought', formatDate(item.purchaseDate));
-
-    // The primary action gets the first and widest slot.
-    const primary = el('button', { className: 'kb-btn kb-btn--primary' },
-      item.isOut ? 'Put back on the rack' : 'Pull this card');
-    on(primary, 'click', () => void pull(item));
-    detail.appendChild(primary);
-
-    const actions = el('div', { className: 'kb-detail-actions' });
-    const editBtn = el('button', { className: 'kb-btn' }, 'Edit');
-    on(editBtn, 'click', () => openItemForm(undefined, item));
-    actions.appendChild(editBtn);
-
-    const delBtn = el('button', { className: 'kb-btn kb-btn--danger' }, 'Delete') as HTMLButtonElement;
-    on(delBtn, 'click', async () => {
-      delBtn.disabled = true;
-      await remove(item);
-      delBtn.disabled = false;
-    });
-    actions.appendChild(delBtn);
-    detail.appendChild(actions);
-
-    return detail;
+    return el_;
   }
 
   // ── Actions ────────────────────────────────────────────────────
 
-  async function pull(item: PantryItem) {
+  async function toggleHave(item: PantryItem) {
     let isNowOut = false;
-    refocusCardId = item.id;
     const ok = await mutate(
       async () => { isNowOut = await toggleOut(item.id); },
       `Couldn’t update ${item.name}.`,
     );
     if (!ok) return;
-    // Running out is not good news; only restocking is.
     showToast(
-      isNowOut ? `${item.name} pulled — on the grocery list` : `${item.name} back on the rack`,
+      isNowOut
+        ? `${item.name} is out — added to your shopping list`
+        : `${item.name} is back in your pantry`,
       isNowOut ? 'info' : 'success',
     );
     await loadData();
@@ -441,8 +300,7 @@ export function createPantryView(): HTMLElement {
       `Couldn’t remove ${item.name}.`,
     );
     if (!ok) return;
-    if (openCardId === item.id) openCardId = null;
-    showToast('Card removed', 'info', async () => {
+    showToast(`${item.name} deleted`, 'info', async () => {
       await mutate(
         async () => { await restorePantryItem(saved); },
         `Couldn’t bring ${saved.name} back.`,
@@ -456,38 +314,35 @@ export function createPantryView(): HTMLElement {
 
   async function loadData() {
     try {
-      const [items, typical] = await Promise.all([
+      const [items, usuals] = await Promise.all([
         getAllPantryItems(),
         getAllTypicalOrderItems(),
       ]);
       const byName = new Map<string, TypicalOrderItem>();
-      for (const t of typical) byName.set(t.normalizedName, t);
-
-      cards = items.map((item): Card => {
-        const staple = byName.get(item.normalizedName) ?? null;
-        // Never derived from quantity: depletion is binary.
-        const status: CardStatus = item.isOut ? 'out' : staple ? 'stocked' : 'plain';
-        return { item, typical: staple, status };
-      });
+      for (const u of usuals) byName.set(u.normalizedName, u);
+      rows = items.map((item): Row => ({
+        item,
+        usual: byName.get(item.normalizedName) ?? null,
+      }));
       loadFailed = false;
     } catch {
       loadFailed = true;
-      cards = [];
+      rows = [];
     }
-    updatePulled();
-    renderRacks();
+    updateOutCount();
+    render();
   }
 
-  on(pulledBtn, 'click', () => {
-    pulledOnly = !pulledOnly;
-    pulledBtn.setAttribute('aria-pressed', String(pulledOnly));
-    renderRacks();
+  on(outBtn, 'click', () => {
+    outOnly = !outOnly;
+    outBtn.setAttribute('aria-pressed', String(outOnly));
+    render();
   });
 
   let searchTimer: number | undefined;
   on(searchInput, 'input', () => {
     window.clearTimeout(searchTimer);
-    searchTimer = window.setTimeout(() => renderRacks(), 150);
+    searchTimer = window.setTimeout(() => render(), 150);
   });
 
   renderSkeleton();

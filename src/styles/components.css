@@ -1000,3 +1000,10 @@ textarea:focus-visible {
     scroll-behavior: auto !important;
   }
 }
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-secondary);
+}

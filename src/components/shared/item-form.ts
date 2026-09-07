@@ -22,11 +22,26 @@ export interface ItemFormData {
   quantity: number;
   unit: string;
   category: ItemCategory;
+  /**
+   * True when the quantity field was left empty. Lets a caller distinguish
+   * "one of these" from "this isn't something I keep a standing amount of".
+   */
+  quantityBlank: boolean;
 }
 
 export interface ItemFormOptions {
   initial?: Partial<ItemFormData>;
   submitLabel: string;
+  /** Overrides the "Quantity" label, e.g. "Usually buy". */
+  quantityLabel?: string;
+  /** Small explanatory line under the quantity field. */
+  quantityHint?: string;
+  /**
+   * When present, the form offers a barcode scan above the name field, so the
+   * camera is one extra tap only when wanted -- adding by hand stays a single
+   * tap from the + button.
+   */
+  scan?: (apply: (data: Partial<ItemFormData>) => void) => void;
   /**
    * May be async. The form disables itself for the duration, so a repeated tap
    * on a slow write cannot add the same item twice.
@@ -35,10 +50,25 @@ export interface ItemFormOptions {
 }
 
 export function createItemForm(container: HTMLElement, options: ItemFormOptions): void {
-  const { initial, submitLabel, onSubmit } = options;
+  const { initial, submitLabel, onSubmit, quantityLabel, quantityHint, scan } = options;
 
   const defaultCategory = initial?.category ?? getLastCategory();
   const defaultUnit = initial?.unit ?? getLastUnit();
+
+  if (scan) {
+    const scanBtn = el('button', { className: 'btn btn-secondary btn-block' }, 'Scan a barcode instead');
+    scanBtn.style.marginBottom = '16px';
+    scanBtn.addEventListener('click', () => {
+      scan((data) => {
+        // The unsupported-browser path reports an empty name; ignore it rather
+        // than blanking a field the user may have already typed into.
+        if (data.name) nameInput.value = data.name;
+        if (data.category) catSelect.value = data.category;
+        qtyInput.focus();
+      });
+    });
+    container.appendChild(scanBtn);
+  }
 
   // Name
   const nameGroup = el('div', { className: 'input-group' });
@@ -52,12 +82,15 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
   const row = el('div', { className: 'input-row' });
 
   const qtyGroup = el('div', { className: 'input-group' });
-  qtyGroup.appendChild(el('label', {}, 'Quantity'));
+  qtyGroup.appendChild(el('label', {}, quantityLabel ?? 'Quantity'));
   const qtyInput = el('input', { className: 'input', type: 'number', placeholder: '1' });
   qtyInput.setAttribute('min', '0');
   qtyInput.setAttribute('step', 'any');
   qtyInput.value = String(initial?.quantity ?? 1);
   qtyGroup.appendChild(qtyInput);
+  if (quantityHint) {
+    qtyGroup.appendChild(el('div', { className: 'field-hint' }, quantityHint));
+  }
   row.appendChild(qtyGroup);
 
   const unitGroup = el('div', { className: 'input-group' });
@@ -117,6 +150,7 @@ export function createItemForm(container: HTMLElement, options: ItemFormOptions)
         quantity: parseFloat(qtyInput.value) || 1,
         unit,
         category,
+        quantityBlank: qtyInput.value.trim() === '',
       });
     } finally {
       // If the caller kept the sheet open — because the write failed — the
