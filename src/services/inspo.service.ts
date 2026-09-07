@@ -1,5 +1,7 @@
 import { getDB } from '../db/database';
-import type { InspoItem, InspoPlatform, RecipeMealCategory } from '../models/types';
+import { emit } from '../utils/events';
+import type { InspoItem, InspoPlatform } from '../models/types';
+import { fetchCover } from './cover.service';
 
 function detectPlatform(url: string): InspoPlatform {
   if (url.includes('tiktok.com')) return 'tiktok';
@@ -8,51 +10,20 @@ function detectPlatform(url: string): InspoPlatform {
 }
 
 /**
- * A thumbnail is decoration; saving the link is the job. Both endpoints are
- * cross-origin and one of them wants a token, so this fails routinely — and
- * with no timeout it used to leave "Saving…" on screen indefinitely in a
- * dead zone. Bounded, and a failure is just a placeholder card.
+ * Saves and returns straight away, with no cover.
+ *
+ * It used to await the thumbnail fetch before resolving, so pasting a link
+ * meant watching "Saving…" for as long as a social CDN felt like taking —
+ * indefinitely, in a dead zone. The row now paints its monogram immediately
+ * and `ensureCovers` fills the picture in behind it.
  */
-async function fetchOembedThumbnail(oembedUrl: string): Promise<string> {
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), 3000);
-  try {
-    const res = await fetch(oembedUrl, { signal: abort.signal });
-    if (!res.ok) return '';
-    const data = await res.json();
-    return (data.thumbnail_url as string) || '';
-  } catch {
-    return '';
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-export async function saveInspoUrl(
-  url: string,
-  title?: string,
-  mealCategory?: RecipeMealCategory,
-): Promise<InspoItem> {
-  const platform = detectPlatform(url);
-  let thumbnailUrl = '';
-
-  if (platform === 'tiktok') {
-    thumbnailUrl = await fetchOembedThumbnail(
-      `https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`
-    );
-  } else if (platform === 'instagram') {
-    thumbnailUrl = await fetchOembedThumbnail(
-      `https://api.instagram.com/oembed/?url=${encodeURIComponent(url)}&format=json`
-    );
-  }
-
+export async function saveInspoUrl(url: string, title?: string): Promise<InspoItem> {
   const item: InspoItem = {
     id: crypto.randomUUID(),
     url,
     title: title || '',
-    thumbnailUrl,
-    platform,
-    mealCategory,
+    thumbnailUrl: '',
+    platform: detectPlatform(url),
     dateAdded: Date.now(),
   };
 
@@ -61,18 +32,13 @@ export async function saveInspoUrl(
   return item;
 }
 
-export async function saveInspoImage(
-  dataUrl: string,
-  title?: string,
-  mealCategory?: RecipeMealCategory,
-): Promise<InspoItem> {
+export async function saveInspoImage(dataUrl: string, title?: string): Promise<InspoItem> {
   const item: InspoItem = {
     id: crypto.randomUUID(),
     url: '',
     title: title || '',
     thumbnailUrl: dataUrl,
     platform: 'image',
-    mealCategory,
     dateAdded: Date.now(),
   };
 
@@ -100,14 +66,67 @@ export async function restoreInspoItem(item: InspoItem): Promise<void> {
 
 export async function updateInspoItem(
   id: string,
-  updates: { title?: string; mealCategory?: RecipeMealCategory | null },
+  updates: { title?: string; thumbnailUrl?: string; coverTriedAt?: number },
 ): Promise<void> {
   const db = await getDB();
   const item = await db.get('inspoItems', id);
   if (!item) return;
   if (updates.title !== undefined) item.title = updates.title;
-  if (updates.mealCategory !== undefined) {
-    item.mealCategory = updates.mealCategory ?? undefined;
-  }
+  if (updates.thumbnailUrl !== undefined) item.thumbnailUrl = updates.thumbnailUrl;
+  if (updates.coverTriedAt !== undefined) item.coverTriedAt = updates.coverTriedAt;
   await db.put('inspoItems', item);
+}
+
+/** A day. A link that had no cover this morning rarely has one by lunchtime. */
+const RETRY_AFTER_MS = 24 * 60 * 60 * 1000;
+
+/** Two at a time: a cold list of thirty should not open thirty sockets. */
+const CONCURRENCY = 2;
+
+function needsCover(item: InspoItem, now: number): boolean {
+  if (!item.url || item.thumbnailUrl) return false;
+  return item.coverTriedAt === undefined || now - item.coverTriedAt > RETRY_AFTER_MS;
+}
+
+/**
+ * Looks for a cover for every link that still has none, and announces each one
+ * it finds on `inspo-cover` so the view can swap that single tile in place
+ * rather than re-rendering a list the user may be scrolling.
+ *
+ * Every attempt is stamped whether or not it found anything, so a link whose
+ * source has no cover to give costs one request a day rather than one per
+ * open. Failures are silent by design: a cover is decoration, and the row is
+ * already complete without it.
+ */
+export async function ensureCovers(items: InspoItem[]): Promise<void> {
+  const now = Date.now();
+  const queue = items.filter(item => needsCover(item, now));
+  if (queue.length === 0) return;
+
+  let next = 0;
+  async function worker(): Promise<void> {
+    for (;;) {
+      const item = queue[next++];
+      if (!item) return;
+
+      let thumbnailUrl = '';
+      try {
+        thumbnailUrl = await fetchCover(item.url);
+      } catch {
+        thumbnailUrl = '';
+      }
+
+      try {
+        await updateInspoItem(item.id, { thumbnailUrl, coverTriedAt: Date.now() });
+      } catch {
+        return;
+      }
+
+      if (thumbnailUrl) emit('inspo-cover', { id: item.id, thumbnailUrl });
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker),
+  );
 }

@@ -107,19 +107,13 @@ export interface RecipeIngredient {
   inPantry: boolean;
 }
 
-/** Owned by the Saved tab, not by the removed recipe-parsing feature — the
- *  Saved tab's own copy still calls its items recipes. Renaming would touch
- *  ~20 sites there for no user-visible gain. */
+/** Tombstoned along with the `recipes` store. Meal categories were dropped
+ *  from the Saved tab: four pills across the top of a personal collection of a
+ *  dozen links is a taxonomy nobody was maintaining, and search does the same
+ *  job without asking for anything at save time. The type stays because
+ *  `Recipe` below still names it and because existing records still carry the
+ *  field — nothing reads it now, and nothing should. */
 export type RecipeMealCategory = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-
-export const RECIPE_MEAL_CATEGORIES: RecipeMealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];
-
-export const RECIPE_MEAL_CATEGORY_LABELS: Record<RecipeMealCategory, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snack: 'Snack',
-};
 
 export interface Recipe {
   id: string;
@@ -136,8 +130,15 @@ export interface InspoItem {
   id: string;
   url: string;
   title: string;
+  /** A data URL once a cover has been fetched or chosen; '' until then. A
+   *  remote address only where the host paints but refuses a canvas read. */
   thumbnailUrl: string;
   platform: InspoPlatform;
+  /** Tombstoned — see RecipeMealCategory. Never read; kept so that saving an
+   *  old record back does not quietly discard it. */
   mealCategory?: RecipeMealCategory;
+  /** When a cover was last looked for. A link whose source has no cover to
+   *  give would otherwise be re-fetched on every single open. */
+  coverTriedAt?: number;
   dateAdded: number;
 }

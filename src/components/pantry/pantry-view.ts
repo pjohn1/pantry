@@ -17,7 +17,7 @@ import { showToast } from '../shared/toast';
 import { createItemForm, type ItemFormData } from '../shared/item-form';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
 import { setDock } from '../shared/dock';
-import { getViewState, patchViewState } from '../../utils/view-state';
+import { getViewState, patchViewState, keepPlace } from '../../utils/view-state';
 
 const ROUTE = 'pantry';
 
@@ -483,6 +483,9 @@ export function createPantryView(): HTMLElement {
     window.clearTimeout(skeletonTimer);
     updateOutCount();
     render();
+    // After the rows exist, never before: a scroll position assigned to an
+    // empty scroller is clamped to 0.
+    keepPlace(container, ROUTE);
   }
 
   on(outBtn, 'click', () => {
@@ -499,18 +502,6 @@ export function createPantryView(): HTMLElement {
       patchViewState(ROUTE, { query: searchInput.value });
       render();
     }, 150);
-  });
-
-  // Where you were, kept across a tab switch. Both usage scenes are
-  // interrupted ones; re-typing a search after every look-away is the most
-  // repeated friction in the app.
-  requestAnimationFrame(() => {
-    const scroller = container.closest('.app-content');
-    if (!scroller) return;
-    scroller.scrollTop = saved.scrollTop;
-    scroller.addEventListener('scroll', () => {
-      patchViewState(ROUTE, { scrollTop: scroller.scrollTop });
-    }, { passive: true });
   });
 
   scheduleSkeleton();

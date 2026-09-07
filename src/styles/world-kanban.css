@@ -6,8 +6,8 @@
    is signage typography, and it read as cold. Comfort lives in the line
    height and in 44px targets, not in the margins.
 
-   Scoped to `.kb-list-view`, worn by the Pantry and Grocery lists. Saved and
-   Settings still run the incumbent system.
+   Scoped to `.kb-list-view`, worn by the Pantry, Grocery and Saved lists.
+   Settings alone still runs the incumbent system.
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tokens live at the root so both the shell and the view can read them;
@@ -54,7 +54,8 @@
    floating inside one. Handing the shell's padding back to the view is
    what makes position:sticky measure from the real top of the screen. */
 .app-content[data-route='pantry'],
-.app-content[data-route='grocery'] {
+.app-content[data-route='grocery'],
+.app-content[data-route='inspo'] {
   padding: 0;
   background: var(--kb-board);
 }
@@ -342,6 +343,88 @@
   height: 19px;
 }
 
+/* Same 44px box and the same soft ink as the delete beside it. A saved idea
+   has two maintenance verbs rather than one, and both stay visible: this world
+   has no swipe gestures and no overflow menus. */
+.kb-edit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: none;
+  color: var(--kb-ink-soft);
+}
+
+.kb-edit svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* ── The saved row ────────────────────────────────────────────────
+   72px rather than 48, because it carries a 56px cover — uniform within its
+   own list, which is what The Uniform Row Rule is actually protecting. Two
+   lines of title still fit: 2 x 22.1 + 1 + 16.25 + 4 = 65.4px. */
+
+.kb-row--saved {
+  min-height: 72px;
+  padding-left: calc(12px + var(--safe-area-left));
+}
+
+/* The whole title block opens the thing. On a saved idea that verb is not in
+   question, and the two icons beside it keep their own targets. */
+.kb-row-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 2px 4px 2px 0;
+  background: none;
+  border: none;
+  text-align: left;
+  color: inherit;
+}
+
+.kb-cover {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  overflow: hidden;
+  border: 1px solid var(--kb-card-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+}
+
+.kb-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The placeholder. Plain stock and one letter drawn from the link itself —
+   the handle, else the title, else the domain. It replaced a full-bleed tile
+   painted in the Instagram brand gradient under an uppercase wordmark, which
+   is what almost every card showed, since Instagram has had no public
+   thumbnail endpoint since 2020. A brand fill is not this app's colour to
+   spend, and the world's one accent is reserved for being out of something. */
+.kb-cover--mono {
+  border-color: var(--kb-control-edge);
+}
+
+.kb-cover-mono {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--kb-ink-soft);
+}
+
 .kb-btn {
   flex: 1;
   min-height: 44px;
@@ -395,6 +478,13 @@
 .kb-skeleton:nth-child(3) .kb-skeleton-line { width: 66%; }
 .kb-skeleton:nth-child(4) .kb-skeleton-line { width: 34%; }
 .kb-skeleton:nth-child(5) .kb-skeleton-line { width: 50%; }
+
+/* Matches the saved row it stands in for, so the list does not jump height
+   when the read resolves. */
+.kb-skeleton--saved {
+  min-height: 72px;
+  padding: 26px 12px 26px calc(80px + var(--safe-area-left));
+}
 
 @keyframes kbPulse {
   0%, 100% { opacity: 1; }

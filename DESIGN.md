@@ -76,6 +76,12 @@ typography:
     fontSize: "10px"
     fontWeight: 500
     letterSpacing: "0.01em"
+  cover-monogram:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif"
+    fontSize: "22px"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "0"
   ios-body:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif"
     fontSize: "16px"
@@ -232,18 +238,18 @@ components:
     rounded: "{rounded.kb-flush}"
     padding: "12px 16px"
     height: "48px"
-  ios-filter-pill:
-    backgroundColor: "{colors.ios-surface}"
-    textColor: "{colors.ios-text-secondary}"
-    typography: "{typography.ios-detail}"
-    rounded: "{rounded.ios-full}"
-    padding: "5px 12px"
-  ios-filter-pill-active:
-    backgroundColor: "{colors.ios-accent}"
-    textColor: "#ffffff"
-    typography: "{typography.ios-detail}"
-    rounded: "{rounded.ios-full}"
-    padding: "5px 12px"
+  saved-cover:
+    backgroundColor: "{colors.kb-card}"
+    borderColor: "{colors.kb-card-edge}"
+    rounded: "{rounded.kb-control}"
+    height: "56px"
+  saved-cover-placeholder:
+    backgroundColor: "{colors.kb-card}"
+    borderColor: "{colors.kb-control-edge}"
+    textColor: "{colors.kb-ink-soft}"
+    typography: "{typography.cover-monogram}"
+    rounded: "{rounded.kb-control}"
+    height: "56px"
 ---
 
 # Design System: Pantry
@@ -256,7 +262,9 @@ The world is a sheet of warm cream paper laid on a duller board: full-bleed rows
 
 Density is the other half of the character. Eleven items, six group headings and the toolbar all land inside one 393×852 viewport with no horizontal overflow, because a row is exactly 48px and a group heading is a quiet label rather than a printed band. The list is the composition; there are no panels, no cards inside cards, no elevation. One thing floats, and only one: the dock holding the view's primary verb, in the bottom corner where a thumb already is.
 
-**Scope, as shipped.** Warm Paper is worn by **Pantry and Grocery** (`src/styles/world-kanban.css`, scoped to `.kb-list-view` and to `.app-content[data-route='pantry'|'grocery']`). **Saved and Settings still run the incumbent iOS-default system** (`src/styles/variables.css` + `src/styles/components.css`): blue accent, 10/14/20px radii, white surfaces on light grey, translucent tab chrome. That split is a deliberate, accepted state, not a defect — Warm Paper is the project's design direction and the incumbent system is maintenance-only for the two surfaces it still governs.
+**Scope, as shipped.** Warm Paper is worn by **Pantry, Grocery and Saved** (`src/styles/world-kanban.css`, scoped to `.kb-list-view` and to `.app-content[data-route='pantry'|'grocery'|'inspo']`). **Settings alone still runs the incumbent iOS-default system** (`src/styles/variables.css` + `src/styles/components.css`): blue accent, 10/14/20px radii, white surfaces on light grey, translucent tab chrome. That split is a deliberate, accepted state, not a defect — Warm Paper is the project's design direction and the incumbent system is maintenance-only for the one surface it still governs.
+
+Saved converted because it is a list, and it was the only list still speaking the other language: a two-column 4:5 photo grid with black gradient overlays and two circular buttons floating on each 190px thumbnail. It is now the same row on the same board as the other two, which is what "clean and cohesive with the rest of the app" resolved to.
 
 The split is about **surfaces**, and two shared components are not surfaces: the **add/edit sheet** and the **toast** are modal children of the list views, opened and raised on every write, and both are Warm Paper now. They used to be the loudest reminder that the world stopped at the edge of the list — you tapped add on cream stock and got iOS-default white with a blue button, then a black pill dropped onto the board to confirm it.
 
@@ -288,7 +296,7 @@ The palette is unchanged from the previous world and its contrast measurements c
 
 `--kb-stocked` and `--kb-reorder` are **gone**. They were declared in both themes and referenced by no rule, and with depletion binary there was no state left for a second or third signal to mean. The world has one signal ink.
 
-### Incumbent Neutral / Accent (Saved, Settings, shared sheet)
+### Incumbent Neutral / Accent (Settings)
 - **iOS Blue** (`ios-accent`): active tab label, primary buttons, focused input borders, active filter pills.
 - **iOS Grey Field, White Surface, Hairline Border, Secondary Grey** (`ios-bg`, `ios-surface`, `ios-border`, `ios-text-secondary`): white surfaces on light grey with 0.5px borders. The secondary grey was darkened from `#86868b` to `#63636a`, because at the old value every piece of secondary copy in the incumbent system measured 3.33–3.62:1 — field hints, empty states, row details, the barcode scanner's live status and the inactive tab label. It now measures 5.47:1 on the grey field and 5.96:1 on white.
 - **Badge** (`ios-badge`): the tab bar's grocery count, which is a numeral and therefore text. White on `ios-danger` measured 3.55:1 at 10px; it is now white on `#b3261e` (6.54:1) in light and near-black on `#ff453a` (5.11:1) in dark.
@@ -326,6 +334,7 @@ The palette is unchanged from the previous world and its contrast measurements c
 - **Notice body** (400, 15px, 1.45, soft ink): empty, failed and loading copy only. There is no long-form text in this app.
 - **Field input** (500, 16px): the search field and the shared sheet's fields.
 - **Tab label** (500, 10px): the four bottom tabs, and the only sub-13px type in the app. It is native iOS tab-label size and is deliberately exempt.
+- **Cover monogram** (700, 22px, soft ink): one character inside a 56px cover tile on Saved, and the only type in the app above 17px. It is a mark rather than a sentence — the type equivalent of an icon — which is why it sits off the reading ramp rather than extending it. Nothing else may take this size.
 
 ### Named Rules
 **The Nothing-Is-Uppercase Rule.** No text in Warm Paper is uppercased. `text-transform` does not appear in the world's stylesheet, and a render of both list views contains zero uppercase elements. Capitals plus heavy weight plus wide tracking is signage typography; it was tried, it read as cold, and it was removed from all nine rules that carried it. Sentence case, always.
@@ -361,7 +370,7 @@ The palette is unchanged from the previous world and its contrast measurements c
 
 **The Edge-to-Edge List Rule.** The rows are the composition, not content inside a panel. Rows span the full viewport width and are separated by hairlines; never inset the list, never round a row, never float one.
 
-**The Uniform Row Rule.** Every row is the same 48px (49px when a long name wraps), and adjacent 44px targets leave no ambiguous band between them. Uniform height is half the fix for taps landing on the wrong row; a variable-height row reintroduces the bug.
+**The Uniform Row Rule.** Rows are uniform **within a list**: 48px on Pantry and Grocery (49px when a long name wraps), 72px on Saved, which carries a 56px cover tile. Adjacent 44px targets leave no ambiguous band between them. What the rule forbids is a row whose height depends on its content — that is what makes taps land on the neighbour — not two lists that each pick a height and hold it. Measured on Saved with a mix of one- and two-line titles: every row 72px, because two lines still come to 65.4px inside it.
 
 ## Elevation & Depth
 
@@ -395,7 +404,7 @@ The rule needs one supporting primitive: deleting an `auto` row **snoozes** its 
 
 **The Two Radii Rule.** In Warm Paper, controls are 8px, the checkbox is 7px, and full-bleed stock is 0. There is no other step. A pill, a capsule, or a 14px panel belongs to the incumbent system.
 
-**The 44px Target Rule.** Every interactive element is at least 44px in its smallest dimension. Measured in the shipped build with the Pantry tab rendered: **zero controls under 44px**. The visible box may be smaller — the checkbox draws at 24px inside a 44px target, the sheet's close mark at 18px inside 44, the Saved card's icon marks at 28px inside 44 — but the target may not. `.kb-row-main` is the case this rule previously claimed and did not hold: `.kb-row` centres its children, so the name block never stretched to the row's 48px and the Pantry edit target measured 26.1px. It now carries its own `min-height: 44px`.
+**The 44px Target Rule.** Every interactive element is at least 44px in its smallest dimension. Measured in the shipped build with the Pantry tab rendered: **zero controls under 44px**. The visible box may be smaller — the checkbox draws at 24px inside a 44px target, the sheet's close mark at 18px inside 44, Saved's pencil and trash at 19px inside 44 — but the target may not. `.kb-row-main` is the case this rule previously claimed and did not hold: `.kb-row` centres its children, so the name block never stretched to the row's 48px and the Pantry edit target measured 26.1px. It now carries its own `min-height: 44px`.
 
 ## Components
 
@@ -405,10 +414,12 @@ The rule needs one supporting primitive: deleting an `auto` row **snoozes** its 
 - **Icon buttons** (`.kb-tool-btn`): 44×44, card stock, 1px control-edge stroke, 20px inline SVG. Now the toolbar's secondary slot only; `:disabled` drops it to 0.45 opacity, which it needed and did not have — the shared `.btn:disabled` rule never matched it, so a receipt mid-scan looked exactly like one waiting to be started.
 - **Dock buttons** (`.kb-dock-btn`): 52×52, 8px radius, card stock with a 1px control-edge stroke and the world's one outer shadow. `.kb-dock-btn--primary` is the inverted one — solid ink ground, card-stock glyph — because add is the dock's primary verb.
 - **Focus:** a 2px ink outline inset by 3px (`outline-offset: -3px`), so a ring on a full-bleed row never clips off-screen. No colour shift, no glow. **On a filled control the ring flips to card stock** (`.kb-dock-btn--primary`, `.kb-add`, the pressed filter): inset by 3px, an ink ring inside an ink fill measured 1.00:1 and was simply invisible.
-- **Incumbent buttons** (Saved, Settings, shared sheet): 10px radius, filled accent or semantic colour, 15px/500 label, 44px minimum, `opacity: 0.6` on press.
+- **Incumbent buttons** (Settings): 10px radius, filled accent or semantic colour, 15px/500 label, 44px minimum, `opacity: 0.6` on press.
 
 ### Chips
-Warm Paper has no chips. Its one filter — the out-only toggle in the Pantry toolbar — is an 8px, out-ink-stroked, 44px control that inverts to a solid out-ink fill when pressed (`aria-pressed`), pairing the word "out" with a tabular count. It disables rather than hides at zero: a control that vanishes whenever the pantry is whole never becomes a habit, and its removal used to resize the search field under a thumb already reaching for it. Do not add a pill-shaped filter row to this world; the incumbent round `filter-pill` stays on incumbent surfaces, where it is now a 44px target with a visible border and real `aria-pressed`.
+**There are none, in either system.** Warm Paper's one filter — the out-only toggle in the Pantry toolbar — is an 8px, out-ink-stroked, 44px control that inverts to a solid out-ink fill when pressed (`aria-pressed`), pairing the word "out" with a tabular count. It disables rather than hides at zero: a control that vanishes whenever the pantry is whole never becomes a habit, and its removal used to resize the search field under a thumb already reaching for it.
+
+The incumbent round `filter-pill` is **gone**, class and all. Its only surface was Saved's meal-category row — Breakfast / Lunch / Dinner / Snack — and four pills across the top of a personal collection of a dozen links is a taxonomy that has to be maintained at save time by the one person it serves. Search does the same job and asks for nothing. Do not reintroduce a pill-shaped filter row to either system.
 
 ### The dock
 The bottom-right stack that carries a view's primary verbs: add on all three list-bearing tabs, plus receipt-scan on the shopping list. 52px buttons, 10px apart, 12px from the trailing edge plus the side inset.
@@ -429,12 +440,12 @@ It exists because both usage scenes are one hand on a phone and the top-right co
 - **Focus:** the world's 2px inset ink outline.
 - **Placeholder:** soft ink.
 - **Labels:** 13px/600 soft ink, sentence case. They were 12px uppercase with 0.5px tracking, which was simultaneously under the 13px floor and the signage voice this world was built to replace — inside the sheet both list views open.
-- **Incumbent inputs:** 10px radius, 0.5px border. Still the shape on Saved and Settings' own forms; the shared sheet is Warm Paper now (see The Sheet Component).
+- **Incumbent inputs:** 10px radius, 0.5px border. Now Settings' own forms only; Saved's sheets and the shared sheet are Warm Paper (see The shared sheet).
 
 ### The shared sheet
 `openModal` is the app's one modal, and it is **Warm Paper**: board-coloured sheet, 8px top corners, card-stock fields with control-edge strokes, an ink primary button, 13px soft-ink sentence-case labels, out-ink field errors. It used to be iOS-default white with 20px radii and a blue button, which meant every single write left the world and came back.
 
-It is not a surface the user visits — it is a modal child of the two list views, opened on every add, edit, barcode scan and receipt review. That is why it converts while Saved and Settings do not: the two-system split is about *surfaces*, and a sheet is not one.
+It is not a surface the user visits — it is a modal child of the three list views, opened on every add, edit, barcode scan, cover change and receipt review. That is why it converted ahead of the surfaces themselves: the two-system split is about *surfaces*, and a sheet is not one. Its last incumbent holdout, the Link / Screenshot tab pair in the add sheet, is now card stock with a control-edge stroke and an ink fill on the selected tab, having been iOS-grey with a 14px radius and a drop shadow The No-Cast Rule does not grant.
 
 Mechanics, all shared: Escape closes, Tab is trapped (including when focus starts outside the sheet, which the old trap could not see), focus moves in on open and returns to the trigger on close, `visualViewport` supplies `--keyboard-inset` so the submit button never sits under the iOS keyboard, and a backdrop tap can be guarded by `confirmDiscard` so a stray one-handed tap cannot destroy a draft. The close control is a 44px target around an 18px inline-SVG X — drawn, not a `×` character.
 
@@ -462,6 +473,17 @@ One item, one 48px line of card stock, three parts and no more: a **checkbox tar
 The second line is where each list says the one thing its scene needs. On Pantry it is the standing amount, "usually buy 6" — the typical-order diff, which PRODUCT.md requires be legible in the list itself. On the shopping list it is **why the row is there**: "you ran out", "you usually buy this", or the amount when the amount is not one. `source` was a field the user could never see.
 
 The row carries no `aria-label`. One was there and it overrode the children, which meant the standing amount — the product's whole mechanism — was the one thing a screen reader could not read. The row reads its own text, with a visually-hidden "— edit" suffix.
+
+### The saved row and its cover
+Saved's row is the standard row with the checkbox slot replaced by a **56px cover tile**, and it is 72px rather than 48px to hold it. Its three parts read left to right: the tile and the title block together are one button that **opens the thing**, then a 44px pencil, then the same 44px trash every other row carries. Opening is the unambiguous primary verb on a saved idea, so it gets the whole title block rather than a fourth control; the two maintenance verbs stay visible one-tap targets, because this app has no gestures.
+
+The cover is a picture when one can be had and a **monogram on plain card stock** when it cannot: one character taken from the link itself — the creator handle, else the title, else the domain — at 22px/700 in soft ink behind a 1px control-edge stroke.
+
+The placeholder is the part that was actually broken. It used to be a full-bleed tile painted with the Instagram brand gradient or solid `#010101`, carrying a 13px/700 uppercase wordmark — a brand fill, capitals and tracking, three things this world exists to have removed. And it was not an edge case: `api.instagram.com/oembed` was retired in October 2020, so *every* Instagram card had been a placeholder for years, and the code was still calling that endpoint on every save. A brand's colour is not this app's to spend, and the one accent it owns is reserved for being out of something.
+
+**Covers arrive late, and that is designed.** The row paints its monogram the instant the link is saved; the picture is fetched afterwards and swapped into that one tile in place, never by re-rendering a list a thumb may be scrolling. The fetch is source-native only — TikTok's oEmbed, YouTube's constructible thumbnail URL, Instagram's `/media/` image (which needs no CORS and no token, and which Instagram usually refuses anyway), and a direct image link. A public reader proxy would cover far more sites, and was rejected: it would mean sending saved links to a party that is not their source. What those four paths cannot serve keeps its monogram, and **Choose a photo** in the edit sheet is the escape hatch that always works.
+
+Whatever is found is re-encoded through the canvas to a data URL and stored on the device, not kept as a remote address. A social CDN's thumbnail link expires, which is why cards saved months ago showed nothing; and the tab is read while deciding what to cook, which is exactly when a phone is least likely to have signal. Every attempt is stamped, so a link with no cover to give costs one request a day rather than one per open.
 
 ### Signature Component: The checkbox
 A 44×44 target around a 24px, 7px-radius box: card stock with a 1.5px card-edge stroke when unticked, filled solid `--kb-ink` with a card-stock tick when ticked. The unticked stroke is control-edge, not card-edge: an empty card-stock box on a card-stock row is identified by that stroke alone, and at card-edge it measured 1.60:1 light and 1.33:1 dark. It means "I have this" on Pantry and "got it" on your shopping list. Its fill is ink rather than green on purpose (see The Ink, Not Green Rule) — it is a control, not a status light, which is why the out-of-stock signal lives on the row's ground and edge instead.
@@ -493,8 +515,8 @@ A small shared layer at the end of `components.css` applies app-wide and belongs
 - **Do** change the card stock and re-pick the signal ink for dark mode rather than tinting the light palette.
 - **Do** say **item**, **your pantry**, **your shopping list**, and **usually buy** in UI copy — one name per concept.
 - **Do** leave the four-tab bottom bar and the shared resilience layer exactly as they are.
-- **Do** treat Saved and Settings as maintenance: patch them in the incumbent system's own vocabulary, and convert a whole surface at once rather than blending the two. The shared sheet and the toast are the exception, and the reason is that they are not surfaces — they are modal children of Warm Paper views that fire on every write.
-- **Do** give a Settings or Saved row the same shape the list views use when it holds the same kind of actions: content is the edit target, one 44px trash at the trailing edge. A pair of filled buttons per row made a column of red the loudest thing on a maintenance screen.
+- **Do** treat Settings as maintenance: patch it in the incumbent system's own vocabulary, and convert a whole surface at once rather than blending the two — which is how Saved converted, in one pass, rather than by restyling a grid it was going to stop being.
+- **Do** give a Settings row the same shape the list views use when it holds the same kind of actions: content is the edit target, one 44px trash at the trailing edge. A pair of filled buttons per row made a column of red the loudest thing on a maintenance screen.
 
 ### Don't:
 - **Don't** uppercase anything. No `text-transform`, no tracked capitals, no signage voice — that is the treatment this world replaced.
@@ -517,4 +539,4 @@ A small shared layer at the end of `components.css` applies app-wide and belongs
 - **Don't** hide an action behind a gesture. Row actions are visible 44px buttons; there is no swipe in this app.
 - **Don't** introduce pill or capsule radii, circular icon buttons, or the incumbent 10/14/20px scale into Warm Paper.
 - **Don't** inset, round, or float a row, and don't turn a row into a tile.
-- **Don't** extend the incumbent iOS-default system with new patterns, and don't cite it as the project's design direction; it governs Saved, Settings and the shared sheet, nothing more.
+- **Don't** extend the incumbent iOS-default system with new patterns, and don't cite it as the project's design direction; it governs Settings and nothing more.

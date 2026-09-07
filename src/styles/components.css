@@ -151,41 +151,6 @@
   flex-shrink: 0;
 }
 
-/* Filter pills */
-.filter-pills {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: var(--spacing-sm);
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.filter-pills::-webkit-scrollbar { display: none; }
-
-.filter-pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 14px;
-  border: 0.5px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  -webkit-tap-highlight-color: transparent;
-  transition: all 0.1s;
-}
-
-.filter-pill[aria-pressed='true'],
-.filter-pill.active {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: #fff;
-}
-
 /* Modal */
 .modal-overlay {
   position: fixed;
@@ -450,173 +415,13 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Inspo grid */
-.inspo-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.inspo-filters {
-  padding: 8px 0 4px;
-}
-
-.inspo-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 3px;
-  padding: 3px 3px calc(
-    var(--tab-bar-height) + var(--safe-area-bottom) + 24px + var(--kb-dock-h, 0px) + 16px
-  );
-}
-
-/* Card = full-bleed thumbnail with gradient overlay footer */
-.inspo-card {
-  aspect-ratio: 4/5;
-  border-radius: 4px;
-  overflow: hidden;
-  position: relative;
-  background: var(--color-surface);
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Thumbnail fills the whole card */
-.inspo-thumb {
-  position: absolute;
-  inset: 0;
-  cursor: pointer;
-}
-
-.inspo-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.inspo-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-}
-
-.inspo-placeholder svg {
-  width: 36px;
-  height: 36px;
-  color: rgba(255,255,255,0.85);
-  flex-shrink: 0;
-}
-
-.inspo-placeholder span {
-  font-size: 13px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.85);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-}
-
-/* Gradient overlay footer — sits on top of the image */
-.inspo-footer {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0,0,0,0.65) 35%, rgba(0,0,0,0.88));
-  padding: 36px 9px 9px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  pointer-events: none;
-}
-
-.inspo-footer-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #fff;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.3;
-  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
-}
-
-/* Bottom meta row: badge left, icons right */
-.inspo-footer-meta {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  margin: -8px -8px -4px 0;
-  pointer-events: auto;
-}
-
-.inspo-icon-btn {
-  position: relative;
-}
-
-.inspo-footer-spacer { flex: 1; }
-
-.inspo-cat-badge {
-  display: inline-block;
-  padding: 2px 7px;
-  border-radius: var(--radius-full);
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-}
-
-/* A 28px mark inside a 44px target. Two of these sit side by side on a photo;
-   at 28px they were both under the floor and adjacent to each other. */
-.inspo-icon-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  color: #fff;
-  flex-shrink: 0;
-  pointer-events: auto;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.inspo-icon-btn::before {
-  content: '';
-  position: absolute;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0,0,0,0.55);
-}
-
-/* Both marks are white. Colour was carrying nothing here that the glyph and
-   the label do not — and the delete now has an undo behind it. */
-.inspo-icon-btn svg { width: 15px; height: 15px; position: relative; }
-.inspo-icon-btn:active { opacity: 0.5; }
-
-.inspo-empty {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 64px var(--spacing-md);
-  text-align: center;
-}
-
-/* Inspo add modal tabs */
+/* Link or screenshot, in the add sheet. The last incumbent-styled control left
+   inside a sheet that is otherwise Warm Paper: it was iOS-grey with a 14px
+   radius and a drop shadow, which The No-Cast Rule does not grant to anything
+   sitting in the page. Card stock, 8px, and the selected tab inverts to ink. */
 .inspo-modal-tabs {
   display: flex;
-  gap: 0;
-  background: var(--color-surface);
-  border-radius: var(--radius-sm);
-  padding: 2px;
+  gap: 6px;
 }
 
 .inspo-modal-tab {
@@ -624,16 +429,25 @@
   flex: 1;
   padding: 7px;
   font-size: 15px;
-  font-weight: 500;
-  border-radius: calc(var(--radius-sm) - 2px);
-  color: var(--color-text-secondary);
-  transition: all 0.1s;
+  font-weight: 600;
+  border: 1px solid var(--kb-control-edge);
+  border-radius: 8px;
+  background: var(--kb-card);
+  color: var(--kb-ink-soft);
+  transition: background 0.1s, color 0.1s;
 }
 
 .inspo-modal-tab.active {
-  background: var(--color-bg);
-  color: var(--color-text);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+  background: var(--kb-ink);
+  border-color: var(--kb-ink);
+  color: var(--kb-card);
+}
+
+/* An ink ring inside an ink fill measures 1.00:1; the filled tab flips its
+   ring to card stock, exactly as the dock's primary button does. */
+.inspo-modal-tab.active:focus-visible {
+  outline: 2px solid var(--kb-card);
+  outline-offset: -3px;
 }
 
 .inspo-panel {
@@ -643,8 +457,37 @@
 }
 
 .inspo-preview {
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   overflow: hidden;
+}
+
+/* Setting a cover by hand. Most links will never hand a browser their picture,
+   so this is the one route to a real one that always works — and once set it
+   lives on the device, so it survives the CDN link expiring and it is there
+   with no signal. */
+.inspo-cover-edit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.inspo-cover-actions {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* `flex-shrink: 0`, because 56px of tile plus two 16px-padded buttons is 293px
+   inside a 358px sheet — two over, which squeezed "Choose a photo" below its
+   own label and pushed the text into the padding. A tighter gutter buys the
+   room back, and if a longer label ever runs out of it the pair wraps instead
+   of clipping. */
+.inspo-cover-actions .btn {
+  flex: 1 0 auto;
+  padding-inline: 12px;
+  white-space: nowrap;
 }
 
 /* Full-screen image modal */
@@ -662,24 +505,8 @@
 .inspo-image-modal img {
   max-width: 100%;
   max-height: 85dvh;
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   object-fit: contain;
-}
-
-
-/* Meal-category pills. Named `recipe-*` for historical reasons; they are
-   owned by the Saved tab (inspo-view.ts). Recipe parsing has been removed;
-   these are not part of it. */
-.recipe-cat-picker {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-/* Category pill: uses --cat-color for active state */
-.recipe-cat-pill.active {
-  background: var(--cat-color, var(--color-accent));
-  color: #fff;
 }
 
 
@@ -953,22 +780,10 @@ textarea:focus-visible {
   margin-top: 0;
 }
 
-/* The Saved tab's cards are the one place a thumbnail is the content, so its
-   grid needs the dock's clearance rather than the tab bar's. */
 .inspo-preview-img {
   width: 100%;
   border-radius: 8px;
   margin-top: 8px;
-}
-
-/* A photo is the card's primary action; it is a button now, not a div. */
-.inspo-thumb {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: none;
-  background: none;
-  text-align: left;
 }
 
 /* The standing-order row: content is the edit target, one trailing trash is

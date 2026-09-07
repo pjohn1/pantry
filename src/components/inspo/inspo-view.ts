@@ -6,259 +6,305 @@ import {
   deleteInspoItem,
   restoreInspoItem,
   updateInspoItem,
+  ensureCovers,
 } from '../../services/inspo.service';
-import type { InspoItem, InspoPlatform, RecipeMealCategory } from '../../models/types';
-import { RECIPE_MEAL_CATEGORIES, RECIPE_MEAL_CATEGORY_LABELS } from '../../models/types';
+import { describeLink } from '../../services/cover.service';
+import type { InspoItem } from '../../models/types';
 import { openModal } from '../shared/modal';
 import { showToast } from '../shared/toast';
 import { setDock } from '../shared/dock';
+import { getViewState, patchViewState, keepPlace } from '../../utils/view-state';
+import { subscribe } from '../../utils/events';
+import { coverFromFile } from '../../utils/image';
 
-const PLATFORM_COLORS: Record<InspoPlatform, string> = {
-  tiktok: '#010101',
-  instagram: 'linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-  image: '#3a3a3c',
-  other: '#2c2c2e',
-};
-
-const PLATFORM_LABELS: Record<InspoPlatform, string> = {
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-  image: 'Image',
-  other: 'Link',
-};
-
-const PLATFORM_ICONS: Record<InspoPlatform, string> = {
-  tiktok: '<path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.76a4.85 4.85 0 0 1-1.01-.07z"/>',
-  instagram: '<rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>',
-  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>',
-  other: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
-};
+const ROUTE = 'inspo';
 
 const ICON_PLUS = '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>';
-const TRASH_ICON = '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>';
-const PENCIL_ICON = '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>';
+const ICON_TRASH =
+  '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>';
+const ICON_PENCIL =
+  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>';
 
-/** Light values plus a dark counterpart: these badges carry white text. */
-const MEAL_CATEGORY_COLORS: Record<RecipeMealCategory, string> = {
-  breakfast: '#8a4b00',
-  lunch:     '#1f6b32',
-  dinner:    '#0a4fa8',
-  snack:     '#6b2f8f',
-};
-
-function resizeImageToDataUrl(file: File, maxSize = 600): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(objectUrl);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
-    };
-    img.onerror = reject;
-    img.src = objectUrl;
-  });
+/** Which row control had focus, so a re-render can hand it back. */
+interface FocusMark {
+  id: string;
+  control: string;
 }
 
-export async function createInspoView(): Promise<HTMLElement> {
-  const container = el('div', { className: 'inspo-view' });
-  let allItems = await getAllInspoItems();
-  let activeFilter: 'all' | RecipeMealCategory = 'all';
+function savedOn(ts: number): string {
+  return new Date(ts).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+/**
+ * The two lines of a row: what it is, and where it came from.
+ *
+ * Resolved together rather than independently, because an untitled item has
+ * only the link to name itself with — and computing each line on its own put
+ * "TikTok · @nigella" on both of them.
+ */
+function rowText(item: InspoItem): { name: string; sub: string } {
+  const title = item.title.trim();
+
+  if (item.platform === 'image') {
+    return title
+      ? { name: title, sub: `Screenshot · ${savedOn(item.dateAdded)}` }
+      : { name: 'Screenshot', sub: `Saved ${savedOn(item.dateAdded)}` };
+  }
+
+  const { sourceLabel, handle } = describeLink(item.url, title);
+  if (title) return { name: title, sub: handle ? `${sourceLabel} · ${handle}` : sourceLabel };
+  // Untitled: the name takes the most specific thing the link carries and the
+  // line beneath takes whatever that left over.
+  if (handle) return { name: handle, sub: sourceLabel };
+  return { name: sourceLabel, sub: `Saved ${savedOn(item.dateAdded)}` };
+}
+
+function displayName(item: InspoItem): string {
+  return rowText(item).name;
+}
+
+/**
+ * The cover tile: the fetched picture when there is one, otherwise a monogram
+ * drawn from the link itself.
+ *
+ * The placeholder is deliberately plain stock and soft ink. It used to be a
+ * full-bleed tile painted in the Instagram brand gradient, or solid black,
+ * with an uppercase wordmark on it — and because Instagram's public thumbnail
+ * endpoint has not existed since 2020, that was what almost every card showed.
+ * A brand fill is not this app's colour to spend, and a column of quiet cream
+ * tiles each carrying a different letter reads as a collection rather than as
+ * a wall of failed loads.
+ */
+function buildCover(item: InspoItem): HTMLElement {
+  const tile = el('span', { className: 'kb-cover' });
+  tile.dataset.cover = '';
+  paintCover(tile, item);
+  return tile;
+}
+
+function paintCover(tile: HTMLElement, item: InspoItem): void {
+  tile.innerHTML = '';
+  if (item.thumbnailUrl) {
+    tile.classList.remove('kb-cover--mono');
+    const img = el('img', { className: 'kb-cover-img', src: item.thumbnailUrl, alt: '' });
+    img.setAttribute('loading', 'lazy');
+    img.setAttribute('decoding', 'async');
+    tile.appendChild(img);
+    return;
+  }
+  tile.classList.add('kb-cover--mono');
+  const mono = item.platform === 'image'
+    ? describeLink('', item.title).monogram
+    : describeLink(item.url, item.title).monogram;
+  tile.appendChild(el('span', { className: 'kb-cover-mono', 'aria-hidden': 'true' }, mono));
+}
+
+export function createInspoView(): HTMLElement {
+  const container = el('div', { className: 'kb-list-view inspo-view' });
+  const saved = getViewState(ROUTE);
 
   container.appendChild(el('h1', { className: 'visually-hidden' }, 'Saved ideas'));
 
-  // ── Filter pills ──────────────────────────────────────────────
-  const filterRow = el('div', {
-    className: 'filter-pills inspo-filters', role: 'group', 'aria-label': 'Filter by meal',
+  // ── Toolbar ────────────────────────────────────────────────────
+  // Search replaced four meal-category pills. A dozen saved links did not need
+  // a taxonomy, and it was one asked for at save time and maintained by nobody.
+  const toolbar = el('div', { className: 'kb-toolbar' });
+  const searchInput = el('input', {
+    className: 'kb-search',
+    type: 'search',
+    placeholder: 'Search what you’ve saved',
+    'aria-label': 'Search what you’ve saved',
+    autocapitalize: 'none',
+    autocorrect: 'off',
+    spellcheck: 'false',
+    enterkeyhint: 'search',
+  }) as HTMLInputElement;
+  searchInput.value = saved.query;
+  toolbar.appendChild(searchInput);
+  container.appendChild(toolbar);
+
+  const listEl = el('div', { className: 'kb-list', role: 'list' });
+  container.appendChild(listEl);
+
+  const addBtn = el('button', {
+    className: 'kb-dock-btn kb-dock-btn--primary',
+    'aria-label': 'Save an idea',
   });
+  addBtn.appendChild(svgIcon(ICON_PLUS, 22));
+  on(addBtn, 'click', () => openAddSheet());
+  setDock(addBtn);
 
-  const allPill = el('button', { className: 'filter-pill active', 'aria-pressed': 'true' }, 'All');
-  on(allPill, 'click', () => setFilter('all'));
-  filterRow.appendChild(allPill);
+  // ── State ──────────────────────────────────────────────────────
+  let items: InspoItem[] = [];
+  let loadFailed = false;
+  let refocus: FocusMark | null = null;
 
-  for (const cat of RECIPE_MEAL_CATEGORIES) {
-    const pill = el('button', {
-      className: 'filter-pill', 'aria-pressed': 'false',
-    }, RECIPE_MEAL_CATEGORY_LABELS[cat]);
-    on(pill, 'click', () => setFilter(cat));
-    filterRow.appendChild(pill);
-  }
-  container.appendChild(filterRow);
-
-  function setFilter(f: 'all' | RecipeMealCategory) {
-    activeFilter = f;
-    filterRow.querySelectorAll('.filter-pill').forEach((p, i) => {
-      const val = i === 0 ? 'all' : RECIPE_MEAL_CATEGORIES[i - 1];
-      const on_ = val === f;
-      p.classList.toggle('active', on_);
-      // Selection was carried by colour alone.
-      p.setAttribute('aria-pressed', String(on_));
-    });
-    renderGrid();
+  function markFocus(id: string, control: string) {
+    refocus = { id, control };
   }
 
-  // ── Grid ──────────────────────────────────────────────────────
-  const grid = el('div', { className: 'inspo-grid', role: 'list' });
-  container.appendChild(grid);
-
-  function renderGrid() {
-    grid.innerHTML = '';
-    const visible = activeFilter === 'all'
-      ? allItems
-      : allItems.filter(i => i.mealCategory === activeFilter);
-
-    if (visible.length === 0) {
-      const empty = el('div', { className: 'inspo-empty' });
-      const msg = allItems.length === 0
-        ? 'Nothing saved yet. Paste a TikTok or Instagram link, or add a screenshot.'
-        : `Nothing saved for ${RECIPE_MEAL_CATEGORY_LABELS[activeFilter as RecipeMealCategory].toLowerCase()} yet.`;
-      empty.appendChild(el('p', { className: 'empty-state-text' }, msg));
-      grid.appendChild(empty);
-      return;
-    }
-
-    for (const item of visible) {
-      grid.appendChild(createCard(item));
-    }
+  function restoreFocus() {
+    if (!refocus) return;
+    const { id, control } = refocus;
+    refocus = null;
+    const exact = listEl.querySelector<HTMLElement>(
+      `[data-item-id="${id}"] [data-control="${control}"]`,
+    );
+    if (exact) { exact.focus(); return; }
+    listEl.querySelector<HTMLElement>(`[data-control="${control}"]`)?.focus();
   }
 
-  function createCard(item: InspoItem): HTMLElement {
-    const card = el('div', { className: 'inspo-card', role: 'listitem' });
-    card.dataset.id = item.id;
-    const label = item.title || PLATFORM_LABELS[item.platform];
+  function replaceItem(next: InspoItem) {
+    const idx = items.findIndex(i => i.id === next.id);
+    if (idx !== -1) items[idx] = next;
+  }
 
-    // ── Thumbnail ───────────────────────────────────────────────
-    // A button, not a div: this is the card's primary action, and it used to be
-    // unreachable by keyboard and unannounced by a screen reader.
-    const thumb = el('button', {
-      className: 'inspo-thumb',
-      'aria-label': item.platform === 'image' ? `Open ${label}` : `Open ${label} on ${PLATFORM_LABELS[item.platform]}`,
+  // ── Rows ───────────────────────────────────────────────────────
+
+  function buildRow(item: InspoItem): HTMLElement {
+    const row = el('div', { className: 'kb-row kb-row--saved', role: 'listitem' });
+    row.dataset.itemId = item.id;
+    const { name, sub } = rowText(item);
+
+    // The whole title block is the primary verb, because on a saved idea that
+    // verb is unambiguously "open it". Both maintenance verbs stay visible
+    // one-tap targets beside it — the same two controls the old card had, laid
+    // out on stock rather than floated over a photograph.
+    const openBtn = el('button', {
+      className: 'kb-row-open',
+      'aria-label': item.platform === 'image'
+        ? `Open ${name}`
+        : `Open ${name} on ${describeLink(item.url).sourceLabel}`,
     });
+    openBtn.dataset.control = 'open';
+    openBtn.appendChild(buildCover(item));
 
-    if (item.thumbnailUrl) {
-      const img = el('img', { src: item.thumbnailUrl, alt: '' });
-      thumb.appendChild(img);
-    } else {
-      const placeholder = el('div', { className: 'inspo-placeholder' });
-      placeholder.style.background = PLATFORM_COLORS[item.platform];
-      const icon = svgIcon(PLATFORM_ICONS[item.platform]);
-      icon.setAttribute('aria-hidden', 'true');
-      placeholder.appendChild(icon);
-      placeholder.appendChild(el('span', {}, PLATFORM_LABELS[item.platform]));
-      thumb.appendChild(placeholder);
-    }
+    const main = el('span', { className: 'kb-row-main' });
+    main.appendChild(el('span', { className: 'kb-row-name' }, name));
+    main.appendChild(el('span', { className: 'kb-row-sub' }, sub));
+    openBtn.appendChild(main);
 
-    on(thumb, 'click', () => {
-      if (item.platform === 'image') {
-        openImageModal(item);
-      } else if (item.url) {
-        window.open(item.url, '_blank', 'noopener,noreferrer');
-      }
+    on(openBtn, 'click', () => {
+      if (item.platform === 'image') openImageSheet(item);
+      else if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
     });
+    row.appendChild(openBtn);
 
-    // ── Overlay footer (inside thumb) ───────────────────────────
-    const footer = el('div', { className: 'inspo-footer' });
-    footer.appendChild(el('div', { className: 'inspo-footer-title' }, label));
-
-    const meta = el('div', { className: 'inspo-footer-meta' });
-
-    if (item.mealCategory) {
-      const badge = el('span', { className: 'inspo-cat-badge' },
-        RECIPE_MEAL_CATEGORY_LABELS[item.mealCategory]
-      );
-      badge.style.background = MEAL_CATEGORY_COLORS[item.mealCategory];
-      meta.appendChild(badge);
-    }
-
-    meta.appendChild(el('div', { className: 'inspo-footer-spacer' }));
-
-    const editBtn = el('button', {
-      className: 'inspo-icon-btn', 'aria-label': `Edit ${label}`,
-    });
-    const pencil = svgIcon(PENCIL_ICON);
+    const editBtn = el('button', { className: 'kb-edit', 'aria-label': `Edit ${name}` });
+    editBtn.dataset.control = 'edit';
+    const pencil = svgIcon(ICON_PENCIL, 19);
     pencil.setAttribute('aria-hidden', 'true');
     editBtn.appendChild(pencil);
-    on(editBtn, 'click', (e) => { e.stopPropagation(); openEditModal(item); });
-    meta.appendChild(editBtn);
+    on(editBtn, 'click', () => { markFocus(item.id, 'edit'); openEditSheet(item); });
+    row.appendChild(editBtn);
 
-    const deleteBtn = el('button', {
-      className: 'inspo-icon-btn', 'aria-label': `Delete ${label}`,
-    });
-    const trash = svgIcon(TRASH_ICON);
+    const deleteBtn = el('button', { className: 'kb-del', 'aria-label': `Delete ${name}` });
+    deleteBtn.dataset.control = 'delete';
+    const trash = svgIcon(ICON_TRASH, 19);
     trash.setAttribute('aria-hidden', 'true');
     deleteBtn.appendChild(trash);
-    on(deleteBtn, 'click', async (e) => {
-      e.stopPropagation();
-      // Delete-then-undo, like every other destructive action in the app. The
-      // native confirm() here was the only blocking dialog left.
-      const saved = { ...item };
+    on(deleteBtn, 'click', async () => {
+      markFocus(item.id, 'delete');
+      const snapshot = { ...item };
       try {
         await deleteInspoItem(item.id);
       } catch {
-        showToast(`Couldn’t delete ${label}.`, 'error');
+        showToast(`Couldn’t delete ${name}.`, 'error');
         return;
       }
-      allItems = allItems.filter(i => i.id !== item.id);
-      renderGrid();
-      showToast(`${label} deleted`, 'info', async () => {
+      items = items.filter(i => i.id !== item.id);
+      render();
+      showToast(`${name} deleted`, 'info', async () => {
         try {
-          await restoreInspoItem(saved);
+          await restoreInspoItem(snapshot);
         } catch {
-          showToast(`Couldn’t bring ${label} back.`, 'error');
+          showToast(`Couldn’t bring ${name} back.`, 'error');
           return;
         }
-        allItems = [saved, ...allItems];
-        renderGrid();
+        items = [snapshot, ...items].sort((a, b) => b.dateAdded - a.dateAdded);
+        render();
       });
     });
-    meta.appendChild(deleteBtn);
+    row.appendChild(deleteBtn);
 
-    footer.appendChild(meta);
-    thumb.appendChild(footer);
-    card.appendChild(thumb);
-    return card;
+    return row;
   }
 
-  /** A meal picker built from the shared pill, with real pressed state. */
-  function buildCategoryPicker(initial?: RecipeMealCategory) {
-    const wrap = el('div', {
-      className: 'recipe-cat-picker', role: 'group', 'aria-label': 'Meal',
-    });
-    let selected: RecipeMealCategory | undefined = initial;
+  // ── Render ─────────────────────────────────────────────────────
 
-    for (const cat of RECIPE_MEAL_CATEGORIES) {
-      const pill = el('button', {
-        className: `filter-pill recipe-cat-pill${selected === cat ? ' active' : ''}`,
-        'aria-pressed': String(selected === cat),
-      }, RECIPE_MEAL_CATEGORY_LABELS[cat]);
-      pill.style.setProperty('--cat-color', MEAL_CATEGORY_COLORS[cat]);
-      on(pill, 'click', () => {
-        const turningOff = selected === cat;
-        selected = turningOff ? undefined : cat;
-        wrap.querySelectorAll('.recipe-cat-pill').forEach(p => {
-          p.classList.remove('active');
-          p.setAttribute('aria-pressed', 'false');
-        });
-        if (!turningOff) {
-          pill.classList.add('active');
-          pill.setAttribute('aria-pressed', 'true');
-        }
-      });
-      wrap.appendChild(pill);
+  let skeletonTimer: number | undefined;
+
+  function scheduleSkeleton() {
+    skeletonTimer = window.setTimeout(() => {
+      listEl.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const r = el('div', { className: 'kb-skeleton kb-skeleton--saved' });
+        r.appendChild(el('div', { className: 'kb-skeleton-line' }));
+        listEl.appendChild(r);
+      }
+    }, 120);
+  }
+
+  function notice(text: string, actionLabel?: string, onAction?: () => void): HTMLElement {
+    const box = el('div', { className: 'kb-notice' });
+    box.appendChild(el('p', { className: 'kb-notice-text' }, text));
+    if (actionLabel && onAction) {
+      const btn = el('button', { className: 'kb-btn' }, actionLabel);
+      on(btn, 'click', onAction);
+      box.appendChild(btn);
+    }
+    return box;
+  }
+
+  function visibleItems(): InspoItem[] {
+    const query = searchInput.value.trim().toLowerCase();
+    if (!query) return items;
+    return items.filter(item => {
+      const { sourceLabel, handle } = describeLink(item.url, item.title);
+      return [item.title, sourceLabel, handle, item.url]
+        .some(field => field?.toLowerCase().includes(query));
+    });
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+
+    if (loadFailed) {
+      const box = notice(
+        'Couldn’t open what you’ve saved on this device.',
+        'Try again',
+        () => { scheduleSkeleton(); void loadData(); },
+      );
+      box.setAttribute('role', 'alert');
+      listEl.appendChild(box);
+      return;
     }
 
-    return { el: wrap, get value() { return selected; } };
+    if (items.length === 0) {
+      listEl.appendChild(notice(
+        'Nothing saved yet. Paste a TikTok, Instagram or YouTube link, or add a screenshot of something you want to cook.',
+      ));
+      return;
+    }
+
+    const list = visibleItems();
+    if (list.length === 0) {
+      listEl.appendChild(notice(`Nothing matches “${searchInput.value.trim()}”.`));
+      return;
+    }
+
+    for (const item of list) listEl.appendChild(buildRow(item));
+    restoreFocus();
   }
 
-  // ── Edit ──────────────────────────────────────────────────────
-  // Through the shared sheet, which brings Escape, a focus trap, focus
-  // restoration and dialog semantics that this view had none of.
-  function openEditModal(item: InspoItem) {
+  // ── Sheets ─────────────────────────────────────────────────────
+
+  /**
+   * Title and cover. There is nothing else left to edit: the meal category it
+   * used to ask for is gone, and the link itself is not something you correct
+   * after the fact — you save the right one.
+   */
+  function openEditSheet(item: InspoItem) {
     openModal('Edit saved idea', (body, close) => {
       const titleGroup = el('div', { className: 'input-group' });
       titleGroup.appendChild(el('label', { for: 'inspo-edit-title' }, 'Title'));
@@ -270,30 +316,76 @@ export async function createInspoView(): Promise<HTMLElement> {
       titleGroup.appendChild(titleInput);
       body.appendChild(titleGroup);
 
-      const catGroup = el('div', { className: 'input-group' });
-      catGroup.appendChild(el('label', {}, 'Meal'));
-      const picker = buildCategoryPicker(item.mealCategory);
-      catGroup.appendChild(picker.el);
-      body.appendChild(catGroup);
+      // The escape hatch. Most links will never hand a browser their picture,
+      // so the one guaranteed way to get a real cover is to let the user set
+      // one — and once set, it lives on the device and works offline forever.
+      let cover = item.thumbnailUrl;
+      const coverGroup = el('div', { className: 'input-group' });
+      coverGroup.appendChild(el('label', {}, 'Cover'));
+
+      const coverRow = el('div', { className: 'inspo-cover-edit' });
+      const preview = el('span', { className: 'kb-cover' });
+      const repaint = () => {
+        paintCover(preview, { ...item, thumbnailUrl: cover });
+        drawActions();
+      };
+      coverRow.appendChild(preview);
+
+      const coverActions = el('div', { className: 'inspo-cover-actions' });
+      const fileLabel = el('label', { className: 'btn btn-secondary' }, 'Choose a photo');
+      const fileInput = el('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
+      fileInput.hidden = true;
+      fileLabel.appendChild(fileInput);
+
+      // "Use the link's" appears only when there is a cover to fall back from.
+      // Standing there greyed out on an item that has none was one more control
+      // than the row needed, and two buttons plus the tile overflowed 390px.
+      const clearBtn = el('button', { className: 'btn btn-secondary' }, 'Use the link’s');
+      on(clearBtn, 'click', () => { cover = ''; repaint(); });
+
+      function drawActions() {
+        coverActions.innerHTML = '';
+        coverActions.appendChild(fileLabel);
+        if (cover && item.platform !== 'image') coverActions.appendChild(clearBtn);
+      }
+      coverRow.appendChild(coverActions);
+      coverGroup.appendChild(coverRow);
+      body.appendChild(coverGroup);
+      repaint();
+
+      on(fileInput, 'change', async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        try {
+          cover = await coverFromFile(file);
+          repaint();
+        } catch {
+          showToast('Couldn’t load that image.', 'error');
+        }
+      });
 
       const saveBtn = el('button', { className: 'btn btn-primary btn-block' }, 'Save');
       on(saveBtn, 'click', async () => {
         saveBtn.disabled = true;
         const title = titleInput.value.trim();
         try {
-          await updateInspoItem(item.id, { title, mealCategory: picker.value ?? null });
+          // Clearing the cover clears the attempt stamp with it, so the next
+          // background pass is allowed to look again rather than waiting a day.
+          await updateInspoItem(item.id, {
+            title,
+            thumbnailUrl: cover,
+            ...(cover ? {} : { coverTriedAt: 0 }),
+          });
         } catch {
           saveBtn.disabled = false;
           showToast('Couldn’t save that.', 'error');
           return;
         }
-        const idx = allItems.findIndex(i => i.id === item.id);
-        if (idx !== -1) {
-          allItems[idx] = { ...allItems[idx], title, mealCategory: picker.value };
-        }
+        replaceItem({ ...item, title, thumbnailUrl: cover, ...(cover ? {} : { coverTriedAt: 0 }) });
         close();
         showToast('Saved', 'success');
-        renderGrid();
+        render();
+        if (!cover) void backgroundCovers();
       });
       body.appendChild(saveBtn);
 
@@ -301,9 +393,8 @@ export async function createInspoView(): Promise<HTMLElement> {
     });
   }
 
-  // ── Full-screen image ─────────────────────────────────────────
-  function openImageModal(item: InspoItem) {
-    openModal(item.title || 'Saved image', (body) => {
+  function openImageSheet(item: InspoItem) {
+    openModal(displayName(item), (body) => {
       const box = el('div', { className: 'inspo-image-modal' });
       box.appendChild(el('img', {
         src: item.thumbnailUrl, alt: item.title || 'Saved image',
@@ -312,8 +403,7 @@ export async function createInspoView(): Promise<HTMLElement> {
     });
   }
 
-  // ── Add ───────────────────────────────────────────────────────
-  function openAddModal() {
+  function openAddSheet() {
     openModal('Save an idea', (body, close) => {
       const titleGroup = el('div', { className: 'input-group' });
       titleGroup.appendChild(el('label', { for: 'inspo-add-title' }, 'Title'));
@@ -324,13 +414,6 @@ export async function createInspoView(): Promise<HTMLElement> {
       titleGroup.appendChild(titleInput);
       body.appendChild(titleGroup);
 
-      const catGroup = el('div', { className: 'input-group' });
-      catGroup.appendChild(el('label', {}, 'Meal'));
-      const picker = buildCategoryPicker();
-      catGroup.appendChild(picker.el);
-      body.appendChild(catGroup);
-
-      // Source tabs: link or screenshot.
       const tabs = el('div', { className: 'inspo-modal-tabs', role: 'tablist' });
       const linkTab = el('button', {
         className: 'inspo-modal-tab active', role: 'tab', 'aria-selected': 'true',
@@ -344,11 +427,13 @@ export async function createInspoView(): Promise<HTMLElement> {
 
       const linkPanel = el('div', { className: 'inspo-panel' });
       const urlGroup = el('div', { className: 'input-group' });
-      urlGroup.appendChild(el('label', { for: 'inspo-add-url' }, 'Link'));
+      // The tab directly above already says Link, and the placeholder says what
+      // to paste. Kept for the field's accessible name, not printed twice.
+      urlGroup.appendChild(el('label', { className: 'visually-hidden', for: 'inspo-add-url' }, 'Link'));
       const urlInput = el('input', {
         className: 'input', type: 'url', id: 'inspo-add-url', inputmode: 'url',
         autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false',
-        placeholder: 'Paste a TikTok or Instagram link',
+        placeholder: 'Paste a TikTok, Instagram or YouTube link',
       }) as HTMLInputElement;
       urlGroup.appendChild(urlInput);
       const urlError = el('div', { className: 'field-error', role: 'alert' });
@@ -362,7 +447,7 @@ export async function createInspoView(): Promise<HTMLElement> {
       imagePanel.hidden = true;
       const fileLabel = el('label', { className: 'btn btn-secondary btn-block' }, 'Choose a photo or screenshot');
       const fileInput = el('input', { type: 'file', accept: 'image/*' }) as HTMLInputElement;
-      fileInput.style.display = 'none';
+      fileInput.hidden = true;
       fileLabel.appendChild(fileInput);
       const previewEl = el('div', { className: 'inspo-preview' });
       const addImageBtn = el('button', { className: 'btn btn-primary btn-block' }, 'Save image');
@@ -390,7 +475,7 @@ export async function createInspoView(): Promise<HTMLElement> {
         const file = fileInput.files?.[0];
         if (!file) return;
         try {
-          selectedDataUrl = await resizeImageToDataUrl(file);
+          selectedDataUrl = await coverFromFile(file);
           previewEl.innerHTML = '';
           const prevImg = el('img', { src: selectedDataUrl, alt: 'The image you chose' });
           prevImg.className = 'inspo-preview-img';
@@ -404,7 +489,6 @@ export async function createInspoView(): Promise<HTMLElement> {
       on(addUrlBtn, 'click', async () => {
         const url = urlInput.value.trim();
         if (!url) {
-          // A silent no-op used to be the entire feedback here.
           urlError.textContent = 'Paste a link first, or switch to Screenshot.';
           urlError.hidden = false;
           urlInput.focus();
@@ -414,11 +498,14 @@ export async function createInspoView(): Promise<HTMLElement> {
         addUrlBtn.disabled = true;
         addUrlBtn.textContent = 'Saving…';
         try {
-          const item = await saveInspoUrl(url, titleInput.value.trim() || undefined, picker.value);
-          allItems = [item, ...allItems];
-          renderGrid();
+          const item = await saveInspoUrl(url, titleInput.value.trim() || undefined);
+          items = [item, ...items];
           close();
           showToast('Saved', 'success');
+          render();
+          // The row is already on screen with its monogram; the picture, if
+          // there is one to be had, arrives behind it.
+          void backgroundCovers();
         } catch (err) {
           showToast((err as Error).message || 'Couldn’t save that link.', 'error');
           addUrlBtn.disabled = false;
@@ -431,11 +518,11 @@ export async function createInspoView(): Promise<HTMLElement> {
         addImageBtn.disabled = true;
         addImageBtn.textContent = 'Saving…';
         try {
-          const item = await saveInspoImage(selectedDataUrl, titleInput.value.trim() || undefined, picker.value);
-          allItems = [item, ...allItems];
-          renderGrid();
+          const item = await saveInspoImage(selectedDataUrl, titleInput.value.trim() || undefined);
+          items = [item, ...items];
           close();
           showToast('Saved', 'success');
+          render();
         } catch (err) {
           showToast((err as Error).message || 'Couldn’t save that image.', 'error');
           addImageBtn.disabled = false;
@@ -447,17 +534,59 @@ export async function createInspoView(): Promise<HTMLElement> {
     });
   }
 
-  renderGrid();
-
-  // The dock, so the add button is a child of #app rather than of the router's
-  // content element — which is what The Floating Control Rule requires and
-  // what the old `.fab` quietly violated.
-  const addBtn = el('button', {
-    className: 'kb-dock-btn kb-dock-btn--primary', 'aria-label': 'Save an idea',
+  // ── Covers, arriving late ──────────────────────────────────────
+  // One row's tile is swapped where it stands. Re-rendering the list to show a
+  // picture would move the ground under a thumb that is already scrolling.
+  let unsubscribe: (() => void) | null = null;
+  unsubscribe = subscribe('inspo-cover', (data?: { id: string; thumbnailUrl: string }) => {
+    if (!container.isConnected) {
+      unsubscribe?.();
+      unsubscribe = null;
+      return;
+    }
+    if (!data) return;
+    const item = items.find(i => i.id === data.id);
+    if (!item) return;
+    item.thumbnailUrl = data.thumbnailUrl;
+    const tile = listEl.querySelector<HTMLElement>(
+      `[data-item-id="${data.id}"] [data-cover]`,
+    );
+    if (tile) paintCover(tile, item);
   });
-  addBtn.appendChild(svgIcon(ICON_PLUS, 22));
-  on(addBtn, 'click', openAddModal);
-  setDock(addBtn);
+
+  function backgroundCovers() {
+    return ensureCovers(items).catch(() => {});
+  }
+
+  // ── Load ───────────────────────────────────────────────────────
+
+  async function loadData() {
+    try {
+      items = await getAllInspoItems();
+      loadFailed = false;
+    } catch {
+      loadFailed = true;
+      items = [];
+    }
+    window.clearTimeout(skeletonTimer);
+    render();
+    // After the rows exist, never before: a scroll position assigned to an
+    // empty scroller is clamped to 0.
+    keepPlace(container, ROUTE);
+    void backgroundCovers();
+  }
+
+  let searchTimer: number | undefined;
+  on(searchInput, 'input', () => {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => {
+      patchViewState(ROUTE, { query: searchInput.value });
+      render();
+    }, 150);
+  });
+
+  scheduleSkeleton();
+  void loadData();
 
   return container;
 }

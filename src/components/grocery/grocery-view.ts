@@ -25,7 +25,7 @@ import {
 } from '../../services/receipt.service';
 import { openBarcodeScanner } from '../shared/barcode-scanner';
 import { setDock } from '../shared/dock';
-import { getViewState, patchViewState } from '../../utils/view-state';
+import { getViewState, patchViewState, keepPlace } from '../../utils/view-state';
 
 const ROUTE = 'grocery';
 
@@ -594,6 +594,9 @@ export function createGroceryView(): HTMLElement {
     }
     window.clearTimeout(skeletonTimer);
     render();
+    // After the rows exist, never before: a scroll position assigned to an
+    // empty scroller is clamped to 0.
+    keepPlace(container, ROUTE);
   }
 
   let searchTimer: number | undefined;
@@ -603,15 +606,6 @@ export function createGroceryView(): HTMLElement {
       patchViewState(ROUTE, { query: searchInput.value });
       render();
     }, 150);
-  });
-
-  requestAnimationFrame(() => {
-    const scroller = container.closest('.app-content');
-    if (!scroller) return;
-    scroller.scrollTop = saved.scrollTop;
-    scroller.addEventListener('scroll', () => {
-      patchViewState(ROUTE, { scrollTop: scroller.scrollTop });
-    }, { passive: true });
   });
 
   scheduleSkeleton();
