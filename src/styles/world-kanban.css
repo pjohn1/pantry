@@ -6,8 +6,8 @@
    is signage typography, and it read as cold. Comfort lives in the line
    height and in 44px targets, not in the margins.
 
-   Scoped to `.kb-list-view`, worn by the Pantry and Grocery lists. Saved
-   and Settings still run the incumbent system.
+   Scoped to `.kb-list-view`, worn by the Pantry and Grocery lists. Saved and
+   Settings still run the incumbent system.
    ═══════════════════════════════════════════════════════════════ */
 
 /* Tokens live at the root so both the shell and the view can read them;

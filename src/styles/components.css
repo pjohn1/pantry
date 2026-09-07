@@ -483,24 +483,6 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-/* Recipe ingredients */
-.ingredient-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-}
-
-.ingredient-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.ingredient-dot.in-pantry { background: var(--color-success); }
-.ingredient-dot.missing { background: var(--color-danger); }
-
 /* Inspo grid */
 .inspo-view {
   display: flex;
@@ -713,20 +695,9 @@
   z-index: 1;
 }
 
-/* Recipe view */
-.recipe-add-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.recipe-status {
-  margin-top: 6px;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  min-height: 18px;
-}
-
+/* Meal-category pills. Named `recipe-*` for historical reasons; they are
+   owned by the Saved tab (inspo-view.ts). Recipe parsing has been removed;
+   these are not part of it. */
 .recipe-cat-picker {
   display: flex;
   gap: 6px;
@@ -739,71 +710,6 @@
   color: #fff;
 }
 
-/* Category badge on recipe cards */
-.recipe-cat-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: 600;
-  color: #fff;
-  letter-spacing: 0.2px;
-  margin-bottom: 4px;
-}
-
-/* Recipe card header layout */
-.recipe-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.recipe-card-title-block {
-  flex: 1;
-  min-width: 0;
-}
-
-.recipe-card-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* Icon-only action buttons on recipe cards */
-.recipe-icon-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-elevated);
-  color: var(--color-text-secondary);
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.recipe-icon-btn svg {
-  width: 15px;
-  height: 15px;
-}
-
-.recipe-icon-btn:active { opacity: 0.6; }
-
-.recipe-icon-btn-danger {
-  color: var(--color-danger);
-}
-
-/* URL input */
-.url-input-row {
-  display: flex;
-  gap: 8px;
-}
-
-.url-input-row .input { flex: 1; }
 
 /* Suppress the iOS rubber-band, but never fix the root.
    A `position: fixed` root leaves the document with no scrollable overflow, so

@@ -60,6 +60,8 @@ export interface TypicalOrderItem {
   category: ItemCategory;
 }
 
+/** `recipe` is legacy: recipe parsing was removed and nothing writes it now.
+ *  Kept so leftover rows stay typed while they are purged on load. */
 export type GrocerySource = 'auto' | 'manual' | 'recipe' | 'out';
 
 export interface GroceryListItem {
@@ -84,6 +86,9 @@ export interface RecipeIngredient {
   inPantry: boolean;
 }
 
+/** Owned by the Saved tab, not by the removed recipe-parsing feature — the
+ *  Saved tab's own copy still calls its items recipes. Renaming would touch
+ *  ~20 sites there for no user-visible gain. */
 export type RecipeMealCategory = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export const RECIPE_MEAL_CATEGORIES: RecipeMealCategory[] = ['breakfast', 'lunch', 'dinner', 'snack'];

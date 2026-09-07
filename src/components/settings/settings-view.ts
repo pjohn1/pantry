@@ -17,16 +17,17 @@ export function createSettingsView(): HTMLElement {
   // Typical order section
   const orderSection = el('div');
   const orderHeader = el('div', { className: 'section-header' });
-  orderHeader.appendChild(el('span', { className: 'section-title' }, 'Typical Grocery Order'));
-  const addOrderBtn = el('button', { className: 'btn btn-sm btn-primary' }, '+ Add');
+  orderHeader.appendChild(el('span', { className: 'section-title' }, 'Things you usually buy'));
+  const addOrderBtn = el('button', { className: 'btn btn-sm btn-primary' }, 'Add');
   on(addOrderBtn, 'click', () => {
-    openModal('Add Typical Order Item', (body, close) => {
+    openModal('Add something you usually buy', (body, close) => {
       createItemForm(body, {
-        submitLabel: 'Add to Typical Order',
+        submitLabel: 'Add',
+        quantityLabel: 'Usually buy',
         onSubmit: async (data: ItemFormData) => {
           await addTypicalOrderItem(data);
           close();
-          showToast('Item added to typical order', 'success');
+          showToast(`${data.name} added`, 'success');
           await loadTypicalOrder();
         },
       });
@@ -43,7 +44,7 @@ export function createSettingsView(): HTMLElement {
   const dataSection = el('div');
   dataSection.style.marginTop = '32px';
   dataSection.appendChild(el('div', { className: 'section-header' },
-    el('span', { className: 'section-title' }, 'Data Management')
+    el('span', { className: 'section-title' }, 'Your data')
   ));
 
   const dataActions = el('div');
@@ -80,15 +81,15 @@ export function createSettingsView(): HTMLElement {
   });
   dataActions.appendChild(importBtn);
 
-  const clearBtn = el('button', { className: 'btn btn-danger btn-block' }, 'Clear All Data');
+  const clearBtn = el('button', { className: 'btn btn-danger btn-block' }, 'Delete everything');
   on(clearBtn, 'click', () => {
-    openModal('Clear All Data', (body, close) => {
-      body.appendChild(el('p', {}, 'This will permanently delete all your pantry items, grocery list, typical order, and saved recipes. This cannot be undone.'));
-      const confirmBtn = el('button', { className: 'btn btn-danger btn-block' }, 'Yes, Clear Everything');
+    openModal('Delete everything?', (body, close) => {
+      body.appendChild(el('p', {}, 'This permanently deletes everything: your pantry, your shopping list, the things you usually buy, and anything you’ve saved. It cannot be undone.'));
+      const confirmBtn = el('button', { className: 'btn btn-danger btn-block' }, 'Delete everything');
       on(confirmBtn, 'click', async () => {
         await clearAllData();
         close();
-        showToast('All data cleared', 'info');
+        showToast('Everything deleted', 'info');
         await loadTypicalOrder();
       });
       body.appendChild(confirmBtn);
@@ -110,7 +111,7 @@ export function createSettingsView(): HTMLElement {
     if (typicalItems.length === 0) {
       const empty = el('div', { className: 'empty-state' });
       empty.appendChild(el('p', { className: 'empty-state-text' },
-        'No typical order items. Add items you regularly buy.'
+        'Nothing here yet. Add the things you always keep in the house.'
       ));
       orderList.appendChild(empty);
       return;
@@ -133,16 +134,17 @@ export function createSettingsView(): HTMLElement {
 
       const actions = el('div', { className: 'item-row-actions' });
 
-      const editBtn = el('button', { className: 'btn btn-sm btn-secondary' }, 'Edit');
+      const editBtn = el('button', { className: 'btn btn-secondary' }, 'Edit');
       on(editBtn, 'click', () => {
-        openModal('Edit Typical Order Item', (body, close) => {
+        openModal('Edit', (body, close) => {
           createItemForm(body, {
             initial: { name: item.name, quantity: item.quantity, unit: item.unit, category: item.category },
             submitLabel: 'Save',
+            quantityLabel: 'Usually buy',
             onSubmit: async (data: ItemFormData) => {
               await updateTypicalOrderItem({ ...item, ...data });
               close();
-              showToast('Item updated', 'success');
+              showToast('Saved', 'success');
               await loadTypicalOrder();
             },
           });
@@ -150,10 +152,19 @@ export function createSettingsView(): HTMLElement {
       });
       actions.appendChild(editBtn);
 
-      const deleteBtn = el('button', { className: 'btn btn-sm btn-danger' }, 'Del');
+      const deleteBtn = el('button', { className: 'btn btn-danger' }, 'Delete');
       on(deleteBtn, 'click', async () => {
+        const saved = { ...item };
         await deleteTypicalOrderItem(item.id);
-        showToast('Item removed', 'info');
+        // Every other delete in the app offers an undo; this one did not.
+        // A fresh id is harmless: nothing joins on typicalOrder.id.
+        showToast(`${saved.name} deleted`, 'info', async () => {
+          await addTypicalOrderItem({
+            name: saved.name, quantity: saved.quantity,
+            unit: saved.unit, category: saved.category,
+          });
+          await loadTypicalOrder();
+        });
         await loadTypicalOrder();
       });
       actions.appendChild(deleteBtn);

@@ -12,7 +12,19 @@ async function emitGroceryCount(): Promise<void> {
 
 export async function getAllGroceryItems(): Promise<GroceryListItem[]> {
   const db = await getDB();
-  const items = await db.getAll('groceryList');
+  let items = await db.getAll('groceryList');
+
+  // Recipe parsing was removed, so nothing can create these any more. Clear
+  // out any that predate the removal rather than showing rows whose origin no
+  // longer exists. Idempotent: after the first load there are none left.
+  const orphans = items.filter(i => i.source === 'recipe');
+  if (orphans.length > 0) {
+    const tx = db.transaction('groceryList', 'readwrite');
+    for (const o of orphans) await tx.objectStore('groceryList').delete(o.id);
+    await tx.done;
+    items = items.filter(i => i.source !== 'recipe');
+  }
+
   emit('grocery-count', items.filter(i => !i.checked).length);
   return items;
 }
@@ -55,8 +67,11 @@ export async function regenerateGroceryList(): Promise<GroceryListItem[]> {
 
   // Preserve manual, recipe, and out items, keep their checked state
   const currentList = await db.getAll('groceryList');
+  // This runs immediately after the whole store is cleared below, so this
+  // filter decides which rows survive a refresh. `recipe` is deliberately
+  // absent: that feature is gone and its leftovers are being retired.
   const preserved = currentList.filter(
-    item => item.source === 'manual' || item.source === 'recipe' || item.source === 'out'
+    item => item.source === 'manual' || item.source === 'out'
   );
 
   // Clear and rewrite

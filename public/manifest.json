@@ -1,7 +1,7 @@
 {
   "name": "Pantry",
   "short_name": "Pantry",
-  "description": "Track your pantry, build grocery lists, parse recipes",
+  "description": "Track your pantry and build your shopping list",
   "start_url": "/pantry/",
   "scope": "/pantry/",
   "display": "standalone",

@@ -36,7 +36,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 
 - Installed to the iPhone home screen, launched in standalone mode; treated as an appliance, not a website.
 - Used in short bursts with one hand, often while holding something else.
-- Recipes arrive as pasted URLs or photographed pages; cooking inspiration arrives as TikTok and Instagram links saved for later.
+- Cooking inspiration arrives as TikTok and Instagram links saved for later.
 - Data lives only on the device it was entered on. JSON export/import is the only transfer mechanism.
 
 ## Capabilities and Constraints
@@ -44,9 +44,8 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 **Confirmed capabilities**
 
 - Pantry inventory with categories, quantities, units, and an out-of-stock toggle that pushes the item onto the grocery list.
-- Grocery list assembled from four sources: `auto` (typical order minus pantry), `out` (marked out of stock), `recipe` (missing ingredients), `manual`.
+- Grocery list assembled from three sources: `auto` (the things you usually buy, minus what's in the pantry), `out` (marked out of stock), `manual`.
 - Typical-order baseline, edited in Settings.
-- Recipe capture from a URL (JSON-LD structured data, via a Cloudflare Worker) or from a photo (on-device OCR), with per-ingredient in-pantry matching.
 - Saved tab for TikTok/Instagram/image cooking inspiration, tagged by meal.
 - Barcode scanning for product name and category lookup.
 - Receipt photo → pantry population.
@@ -60,8 +59,8 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 **Binding constraints (confirmed by the user)**
 
 - **No accounts, no backend, on-device only.** All data in IndexedDB. A deliberate privacy and simplicity choice, not an unfinished stage.
-- **Must work offline.** The core loop has to function in a store with no signal. Only three features may depend on the network — recipe-URL fetching, barcode lookup, and inspo thumbnails — and each must degrade without breaking.
-- **Free hosting: GitHub Pages plus one Cloudflare Worker.** No paid infra or APIs. Keeps the static build and the `/pantry/` base path in place.
+- **Must work offline.** The core loop has to function in a store with no signal. Only two features may depend on the network — barcode lookup and inspo thumbnails — and each must degrade without breaking.
+- **Free hosting: GitHub Pages only.** No paid infra or APIs, and no server-side component at all since recipe parsing was removed. Keeps the static build and the `/pantry/` base path in place.
 - **iPhone-first, installed to the home screen.** Phone in hand is the design target; desktop is incidental.
 
 **Technical constraints that follow**
@@ -72,8 +71,8 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 
 **Explicitly undecided**
 
-- Whether pantry-driven recipe suggestion returns. A "Cook" tab that found recipes from pantry contents shipped in Feb 2026 and was replaced by the Saved/inspo tab in Mar 2026. Whether that was an abandonment or a deferral is not recorded; do not treat its absence as a settled product position either way.
-- Whether saved inspo is meant to be durable. It is currently absent from export, import, and clear-all-data — a gap, not a decision.
+- Whether recipes return in any form. A "Cook" tab that found recipes from pantry contents shipped in Feb 2026 and was replaced by the Saved/inspo tab in Mar 2026; whether that was abandonment or deferral was never recorded. On 2026-09-07 the user removed the remaining Recipes tab outright — URL parsing, photo OCR, and the Cloudflare Worker — as part of an ease-of-use overhaul. That settles the *current* product, and makes the older Cook question moot rather than answered. The Saved tab still holds recipe links; what is gone is parsing them.
+- ~~Whether saved inspo is meant to be durable.~~ **Decided 2026-09-07:** it is. Saved items are now included in export, import, and clear-all-data.
 
 ## Brand Commitments
 
@@ -89,7 +88,7 @@ Two supporting mechanisms reduce the cost of keeping the ledger true, which is t
 ## Product Principles
 
 1. **The ledger's accuracy is the product.** Every feature is judged by whether it makes the pantry state more true with less effort. A feature that adds upkeep burden is a net loss even if it looks useful.
-2. **Never make the user type what a camera can read.** Receipts, barcodes, and recipe pages are inputs; typing is the fallback.
+2. **Never make the user type what a camera can read.** Receipts and barcodes are inputs; typing is the fallback.
 3. **The list is derived, never maintained.** The user curates the typical order and the pantry; the grocery list follows from them.
 4. **Aisle-grade reliability.** One hand, bad signal, cold hands, glancing at the screen between shelves. Anything that fails there fails.
 5. **Nothing leaves the device unless the user exports it.** No account, no telemetry, no sync as a solution to any problem.

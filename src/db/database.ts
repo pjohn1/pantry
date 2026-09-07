@@ -22,6 +22,11 @@ export function getDB(): Promise<IDBPDatabase<PantryDB>> {
           groceryStore.createIndex('by-source', 'source');
           groceryStore.createIndex('by-category', 'category');
 
+          // Tombstoned: recipe parsing was removed on 2026-09-07 and nothing
+          // reads this store. It is deliberately NOT deleted — `idb` types
+          // deleteObjectStore against PantryDB, so dropping it is a two-deploy
+          // change, and with autoUpdate caching a bumped DB_VERSION makes an
+          // older cached shell fail to open the database at all.
           db.createObjectStore('recipes', { keyPath: 'id' });
         }
         if (oldVersion < 2) {

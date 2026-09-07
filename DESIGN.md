@@ -258,7 +258,7 @@ The lineage is the Toyota kanban signal card and the three-bin reorder system: a
 
 **Scope, as shipped.** This world is applied to the **Pantry tab only** (`src/styles/world-kanban.css`, scoped to `.app-content[data-route='pantry']` and `.pantry-view`). The other four tabs — Grocery, Recipes, Saved, Settings — still run the **incumbent iOS-default system** (`src/styles/variables.css` + `src/styles/components.css`): blue accent, 10/14/20px radii, white cards on light grey, translucent chrome. That split is a deliberate, accepted, temporary state; propagation of The Kanban Card to the remaining tabs is the next planned step. **The Kanban Card is the project's design direction. The incumbent system is maintenance-only** — it governs surfaces not yet converted and must not be treated as the target for new work.
 
-Two constraints from PRODUCT.md bind both systems and explain the shape of the world. First, the artifact is an iPhone-first installed PWA used one-handed in a kitchen and a store aisle, offline, sometimes glanced at between shelves: hence 44px minimum controls, the primary camera path parked in the thumb zone, and a fixed field grid that lets the eye scan a column without re-aiming. Second, the app honours the OS light/dark setting with no manual toggle, so every value must clear contrast on its own ground in both themes. The five-tab bottom bar keeps its native iOS affordances in all cases and is out of scope for either world.
+Two constraints from PRODUCT.md bind both systems and explain the shape of the world. First, the artifact is an iPhone-first installed PWA used one-handed in a kitchen and a store aisle, offline, sometimes glanced at between shelves: hence 44px minimum controls, the primary camera path parked in the thumb zone, and a fixed field grid that lets the eye scan a column without re-aiming. Second, the app honours the OS light/dark setting with no manual toggle, so every value must clear contrast on its own ground in both themes. The four-tab bottom bar keeps its native iOS affordances in all cases and is out of scope for either world.
 
 **Key Characteristics:**
 - Card stock and board, not surface and background: paper values (`#f5efe0` on `#d9d2c2`) in light, graphite on near-black in dark
@@ -287,7 +287,7 @@ The Kanban Card palette is warm printed card stock carrying three signal inks; t
 - **Soft Ink** (`kb-ink-soft`): field labels, unit words, bin counts, placeholder text, notice copy, and the `Pull` stamp. Never a signal.
 
 ### Incumbent Neutral / Accent (un-propagated tabs only)
-- **iOS Blue** (`ios-accent`): active tab, primary buttons, focused input borders, active filter pills across Grocery / Recipes / Saved / Settings.
+- **iOS Blue** (`ios-accent`): active tab, primary buttons, focused input borders, active filter pills across Saved / Settings.
 - **iOS Grey Field, White Surface, Hairline Border, Secondary Grey** (`ios-bg`, `ios-surface`, `ios-border`, `ios-text-secondary`): white cards on light grey with 0.5px borders.
 - **iOS Semantic Trio** (`ios-success`, `ios-danger`, `ios-warning`): filled status buttons and toasts in the incumbent tabs.
 
@@ -328,7 +328,7 @@ The Kanban Card palette is warm printed card stock carrying three signal inks; t
 
 ## Layout
 
-`#app` is a fixed-height (100dvh) column: a scrolling content region over a fixed five-tab bar (`50px` plus the bottom safe-area inset). The shell pads content by 16px and honours the top safe area.
+`#app` is a fixed-height (100dvh) column: a scrolling content region over a fixed four-tab bar (`50px` plus the bottom safe-area inset). The shell pads content by 16px and honours the top safe area.
 
 **The Pantry tab opts out of that padding.** The router writes the active route onto the content element (`contentEl.dataset.route = route`), and `.app-content[data-route='pantry']` zeroes the padding and paints the board. This is what makes the rack run edge to edge and what lets `position: sticky` measure from the real top of the screen. Any view that needs to own its own gutters uses this same `data-route` mechanism; nothing else overrides the shell.
 
@@ -401,7 +401,7 @@ The Kanban Card has no chips. Its one filter — the pulled count in the toolbar
 - **Incumbent inputs:** 10px radius, 0.5px border, border colour shifts to accent blue on focus.
 
 ### Navigation
-The five-tab bottom bar is shared, untouched, and native by intent: fixed, 50px plus safe area, translucent (`backdrop-filter: saturate(180%) blur(20px)` over an 85% surface), 0.5px top border, 22px SVG glyph over a 10px/500 label, accent blue when active. It is deliberately **not** themed by The Kanban Card — preserving native iOS affordances is a product constraint. Nothing in either world restyles it, and the Pantry world reserves space for it rather than drawing over it.
+The four-tab bottom bar is shared, untouched, and native by intent: fixed, 50px plus safe area, translucent (`backdrop-filter: saturate(180%) blur(20px)` over an 85% surface), 0.5px top border, 22px SVG glyph over a 10px/500 label, accent blue when active. It is deliberately **not** themed by The Kanban Card — preserving native iOS affordances is a product constraint. Nothing in either world restyles it, and the Pantry world reserves space for it rather than drawing over it.
 
 ### Signature Component: The Stamp
 The state of a card is a stamped ink mark, not a filled button: 3px/7px of padding, a `currentColor` border, a 2px radius and a `rotate(-2deg)` tilt, sitting in a 78×44px hit area at the trailing edge of the row. It exists in exactly three forms:
@@ -431,7 +431,7 @@ A small shared layer at the end of `components.css` applies app-wide and belongs
 - **Do** change the card stock and re-pick the signal inks for dark mode, rather than tinting the light palette.
 - **Do** keep the primary camera action in the fixed dock in the thumb zone, with 44px minimum controls throughout.
 - **Do** paint sticky and fixed chrome with the solid board colour.
-- **Do** leave the five-tab bottom bar and the shared resilience layer exactly as they are.
+- **Do** leave the four-tab bottom bar and the shared resilience layer exactly as they are.
 - **Do** treat un-propagated tabs as maintenance: patch them in the incumbent system's own vocabulary until The Kanban Card is propagated, and convert a whole tab at once rather than blending the two.
 
 ### Don't:

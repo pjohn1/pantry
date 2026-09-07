@@ -3,7 +3,6 @@ import { createTabBar } from './tab-bar';
 import { initRouter, registerRoute } from '../router';
 import { createPantryView } from './pantry/pantry-view';
 import { createGroceryView } from './grocery/grocery-view';
-import { createRecipesView } from './recipes/recipes-view';
 import { createSettingsView } from './settings/settings-view';
 import { createInspoView } from './inspo/inspo-view';
 
@@ -27,7 +26,6 @@ export function createApp(): void {
   // Register routes
   registerRoute('pantry', createPantryView);
   registerRoute('grocery', createGroceryView);
-  registerRoute('recipes', createRecipesView);
   registerRoute('inspo', createInspoView);
   registerRoute('settings', createSettingsView);
 
